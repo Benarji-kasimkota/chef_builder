@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Food Log — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">{{ today }}</p>
+    <h1 class="page-title">Food <span class="accent">Log</span></h1>
+  </div>
+</div>
+
+<!-- Search + Add -->
+<div class="card add-food-card">
+  <h3 class="card-title"><i data-lucide="search"></i> Search & Add Food</h3>
+  <div class="food-search-form">
+    <div class="search-field">
+      <input type="text" id="foodSearch" class="input" placeholder="Search food (e.g. chicken breast, salmon, oats...)" autocomplete="off"/>
+      <div class="search-dropdown" id="searchDropdown"></div>
+    </div>
+    <div class="search-controls">
+      <select id="mealType" class="input select-input">
+        <option value="breakfast">🌅 Breakfast</option>
+        <option value="lunch" selected>☀️ Lunch</option>
+        <option value="dinner">🌙 Dinner</option>
+        <option value="snack">🍎 Snack</option>
+      </select>
+      <div class="qty-wrap">
+        <input type="number" id="quantity" class="input" value="100" min="1" max="2000" placeholder="g"/>
+        <span class="qty-unit" id="qtyUnit">g</span>
+      </div>
+      <button class="btn btn-primary" id="addFoodBtn" disabled onclick="addFood()">
+        <i data-lucide="plus"></i> Add
+      </button>
+    </div>
+  </div>
+  <!-- Selected food preview -->
+  <div class="food-preview" id="foodPreview" style="display:none">
+    <div class="preview-name" id="previewName"></div>
+    <div class="preview-macros" id="previewMacros"></div>
+  </div>
+</div>
+
+<!-- Today's Log -->
+<div class="two-col-grid">
+  <div>
+    <!-- Meal Groups -->
+    {% set meal_groups = {'breakfast': [], 'lunch': [], 'dinner': [], 'snack': []} %}
+    {% for log in logs %}
+      {% if log.meal_type in meal_groups %}
+        {% if meal_groups[log.meal_type].append(log) %}{% endif %}
+      {% endif %}
+    {% endfor %}
+
+    {% for meal, emoji in [('breakfast','🌅'),('lunch','☀️'),('dinner','🌙'),('snack','🍎')] %}
+    {% set meal_logs = logs | selectattr('meal_type','equalto',meal) | list %}
+    {% if meal_logs %}
+    <div class="card meal-group">
+      <h3 class="meal-group-title">{{ emoji }} {{ meal|title }}</h3>
+      {% for log in meal_logs %}
+      <div class="food-log-item" id="log-{{ log.id }}">
+        <div class="food-log-info">
+          <span class="food-log-name">{{ log.food_name }}</span>
+          <span class="food-log-meta">{{ log.quantity_g|round|int }}g</span>
+        </div>
+        <div class="food-log-macros">
+          <span class="macro-badge cal">{{ log.nutrition.get('calories',0)|round|int }} kcal</span>
+          <span class="macro-badge prot">{{ log.nutrition.get('protein',0)|round(1) }}g P</span>
+          <span class="macro-badge carb">{{ log.nutrition.get('carbs',0)|round(1) }}g C</span>
+          <span class="macro-badge fat">{{ log.nutrition.get('fat',0)|round(1) }}g F</span>
+        </div>
+        <button class="btn-icon btn-delete" onclick="deleteLog({{ log.id }})">
+          <i data-lucide="trash-2"></i>
+        </button>
+      </div>
+      {% endfor %}
+      <div class="meal-group-total">
+        {% set meal_cal = meal_logs | map(attribute='nutrition') | map(attribute='calories') | list %}
+        Total: {{ meal_logs | sum(attribute='nutrition') | default(0) }} kcal
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {% if not logs %}
+    <div class="card empty-state">
+      <span class="empty-icon">🥗</span>
+      <h3>No food logged yet today</h3>
+      <p>Search for a food above to start tracking</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Nutrition Summary -->
+  <div>
+    <div class="card nutrition-summary">
+      <h3 class="card-title"><i data-lucide="pie-chart"></i> Today's Nutrition</h3>
+      <canvas id="macroChart" height="220"></canvas>
+      <div class="macro-legend">
+        <div><span class="dot" style="background:#ef4444"></span>Protein <strong>{{ totals.protein|round(1) }}g</strong></div>
+        <div><span class="dot" style="background:#f59e0b"></span>Carbs <strong>{{ totals.carbs|round(1) }}g</strong></div>
+        <div><span class="dot" style="background:#8b5cf6"></span>Fat <strong>{{ totals.fat|round(1) }}g</strong></div>
+      </div>
+    </div>
+
+    <!-- Essential Amino Acids -->
+    <div class="card amino-card">
+      <h3 class="card-title"><i data-lucide="dna"></i> Essential Amino Acids</h3>
+      <div class="amino-grid">
+        {% for key, name in amino_names.items() %}
+        {% set got = totals.amino_acids.get(key, 0) %}
+        {% set need = rda.amino_acids.get(key, 1) %}
+        {% set pct = [(got/need*100)|round|int, 100]|min %}
+        <div class="amino-item" title="{{ amino_roles.get(key, '') }}">
+          <div class="amino-header">
+            <span class="amino-name">{{ name }}</span>
+            <span class="amino-val {% if pct>=80 %}text-green{% elif pct>=40 %}text-amber{% else %}text-red{% endif %}">{{ pct }}%</span>
+          </div>
+          <div class="amino-bar">
+            <div class="amino-fill {% if pct>=80 %}fill-green{% elif pct>=40 %}fill-amber{% else %}fill-red{% endif %}" style="width:{{ pct }}%"></div>
+          </div>
+          <div class="amino-vals"><small>{{ got|round(2) }}g / {{ need }}g</small></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Vitamins -->
+    <div class="card">
+      <h3 class="card-title"><i data-lucide="zap"></i> Vitamins</h3>
+      <div class="nutrient-grid">
+        {% for key, name in vitamin_names.items() %}
+        {% set got = totals.vitamins.get(key, 0) %}
+        {% set need = rda.vitamins.get(key, 1) %}
+        {% set pct = [(got/need*100)|round|int, 100]|min %}
+        <div class="nutrient-item">
+          <span class="nutrient-name">{{ name }}</span>
+          <div class="nutrient-bar">
+            <div class="nutrient-fill {% if pct>=80 %}fill-green{% elif pct>=40 %}fill-amber{% else %}fill-red{% endif %}" style="width:{{ pct }}%"></div>
+          </div>
+          <span class="nutrient-pct {% if pct>=80 %}text-green{% elif pct>=40 %}text-amber{% else %}text-red{% endif %}">{{ pct }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Minerals -->
+    <div class="card">
+      <h3 class="card-title"><i data-lucide="gem"></i> Minerals</h3>
+      <div class="nutrient-grid">
+        {% for key, name in mineral_names.items() %}
+        {% set got = totals.minerals.get(key, 0) %}
+        {% set need = rda.minerals.get(key, 1) %}
+        {% set pct = [(got/need*100)|round|int, 100]|min %}
+        <div class="nutrient-item">
+          <span class="nutrient-name">{{ name }}</span>
+          <div class="nutrient-bar">
+            <div class="nutrient-fill {% if pct>=80 %}fill-green{% elif pct>=40 %}fill-amber{% else %}fill-red{% endif %}" style="width:{{ pct }}%"></div>
+          </div>
+          <span class="nutrient-pct {% if pct>=80 %}text-green{% elif pct>=40 %}text-amber{% else %}text-red{% endif %}">{{ pct }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedFood = null;
+
+const searchInput = document.getElementById('foodSearch');
+const dropdown = document.getElementById('searchDropdown');
+const addBtn = document.getElementById('addFoodBtn');
+
+let searchTimer = null;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  const q = searchInput.value.trim();
+  if (q.length < 2) { dropdown.innerHTML=''; dropdown.classList.remove('open'); return; }
+  searchTimer = setTimeout(() => searchFood(q), 300);
+});
+
+async function searchFood(q) {
+  try {
+    const r = await fetch(`/api/food/search?q=${encodeURIComponent(q)}`);
+    const foods = await r.json();
+    if (!foods.length) { dropdown.innerHTML='<div class="dd-empty">No results found</div>'; dropdown.classList.add('open'); return; }
+    dropdown.innerHTML = foods.map(f => `
+      <div class="dd-item" onclick="selectFood('${f.key}','${f.name.replace(/'/g,"\\'")}',${f.serving_size},'${f.serving_unit}')">
+        <div class="dd-name">${f.name}</div>
+        <div class="dd-macros">
+          <span>${f.calories} kcal</span>
+          <span>${f.protein}g P</span>
+          <span>${f.carbs}g C</span>
+          <span>${f.fat}g F</span>
+          ${f.source==='usda'?'<span class="badge-usda">USDA</span>':''}
+        </div>
+      </div>`).join('');
+    dropdown.classList.add('open');
+  } catch(e) { console.error(e); }
+}
+
+async function selectFood(key, name, servingSize, servingUnit) {
+  dropdown.classList.remove('open');
+  searchInput.value = name;
+  document.getElementById('quantity').value = servingSize;
+  document.getElementById('qtyUnit').textContent = servingUnit;
+
+  try {
+    const r = await fetch(`/api/food/detail?key=${encodeURIComponent(key)}`);
+    const data = await r.json();
+    selectedFood = { key, name, ...data };
+    const n = data.nutrition || {};
+    document.getElementById('previewName').textContent = name;
+    document.getElementById('previewMacros').innerHTML = `
+      <span>🔥 ${n.calories||0} kcal</span>
+      <span>💪 ${n.protein||0}g protein</span>
+      <span>🌾 ${n.carbs||0}g carbs</span>
+      <span>🥑 ${n.fat||0}g fat</span>
+      <span>Ω ${n.omega3||0}g omega-3</span>`;
+    document.getElementById('foodPreview').style.display = 'block';
+    addBtn.disabled = false;
+  } catch(e) { showToast('Could not load food details','error'); }
+}
+
+async function addFood() {
+  if (!selectedFood) return;
+  const qty = parseFloat(document.getElementById('quantity').value) || 100;
+  const mealType = document.getElementById('mealType').value;
+  const ratio = qty / 100;
+  const n = selectedFood.nutrition || {};
+  const scaled = {};
+  for (const k of ['calories','protein','carbs','sugar','fiber','fat','saturated_fat','monounsaturated_fat','polyunsaturated_fat','omega3','omega6']) {
+    scaled[k] = +((n[k]||0) * ratio).toFixed(2);
+  }
+  scaled.vitamins = {};
+  for (const k in (n.vitamins||{})) scaled.vitamins[k] = +((n.vitamins[k]||0) * ratio).toFixed(3);
+  scaled.minerals = {};
+  for (const k in (n.minerals||{})) scaled.minerals[k] = +((n.minerals[k]||0) * ratio).toFixed(2);
+  scaled.amino_acids = {};
+  for (const k in (n.amino_acids||{})) scaled.amino_acids[k] = +((n.amino_acids[k]||0) * ratio).toFixed(3);
+
+  try {
+    const r = await fetch('/api/food/log', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        food_name: selectedFood.name,
+        food_key: selectedFood.key,
+        quantity_g: qty,
+        meal_type: mealType,
+        nutrition: scaled
+      })
+    });
+    if ((await r.json()).success) {
+      showToast(`${selectedFood.name} added!`);
+      setTimeout(() => location.reload(), 800);
+    }
+  } catch(e) { showToast('Failed to add food','error'); }
+}
+
+async function deleteLog(id) {
+  if (!confirm('Remove this entry?')) return;
+  try {
+    const r = await fetch(`/api/food/log/${id}`, {method:'DELETE'});
+    if ((await r.json()).success) {
+      document.getElementById(`log-${id}`)?.remove();
+      showToast('Removed');
+      setTimeout(() => location.reload(), 600);
+    }
+  } catch(e) { showToast('Failed to remove','error'); }
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-field')) dropdown.classList.remove('open');
+});
+
+// Macro chart
+const ctx = document.getElementById('macroChart').getContext('2d');
+new Chart(ctx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Protein', 'Carbs', 'Fat'],
+    datasets: [{
+      data: [{{ totals.protein|round(1) }}, {{ totals.carbs|round(1) }}, {{ totals.fat|round(1) }}],
+      backgroundColor: ['#ef4444','#f59e0b','#8b5cf6'],
+      borderColor: 'transparent', borderWidth: 3, hoverOffset: 8
+    }]
+  },
+  options: {
+    cutout: '72%', plugins: { legend: { display: false },
+      tooltip: { callbacks: { label: c => `${c.label}: ${c.raw}g` } }
+    }
+  }
+});
+
+lucide.createIcons();
+</script>
+{% endblock %}

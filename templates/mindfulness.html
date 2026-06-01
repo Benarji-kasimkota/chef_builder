@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Mindfulness — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">Track your inner wellness journey</p>
+    <h1 class="page-title">Mind & <span class="accent">Body</span></h1>
+  </div>
+</div>
+
+<!-- Log Activity -->
+<div class="card log-mind-card">
+  <h3 class="card-title"><i data-lucide="plus-circle"></i> Log Today's Practice</h3>
+  <div class="mind-form">
+    <div class="activity-picker">
+      {% set activities = [
+        ('meditation','🧘','Meditation'),('yoga','🕉️','Yoga'),('breathing','🌬️','Breathwork'),
+        ('walk','🚶','Mindful Walk'),('journaling','📝','Journaling'),('stretching','🤸','Stretching'),
+        ('cold_shower','🚿','Cold Shower'),('gratitude','🙏','Gratitude'),
+      ] %}
+      {% for key, emoji, label in activities %}
+      <label class="activity-option">
+        <input type="radio" name="activityType" value="{{ key }}" {% if loop.first %}checked{% endif %}/>
+        <span class="activity-btn">{{ emoji }}<br><small>{{ label }}</small></span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="mind-controls">
+      <div class="mind-field">
+        <label>Duration (minutes)</label>
+        <input type="number" id="mindDuration" class="input" value="10" min="1" max="240"/>
+      </div>
+      <div class="mind-field">
+        <label>Mood Before (1-10)</label>
+        <input type="range" id="moodBefore" class="slider" min="1" max="10" value="5" oninput="document.getElementById('mb').textContent=this.value"/>
+        <span id="mb" class="slider-val">5</span>
+      </div>
+      <div class="mind-field">
+        <label>Mood After (1-10)</label>
+        <input type="range" id="moodAfter" class="slider" min="1" max="10" value="7" oninput="document.getElementById('ma').textContent=this.value"/>
+        <span id="ma" class="slider-val">7</span>
+      </div>
+    </div>
+    <textarea id="mindNotes" class="input textarea" rows="2" placeholder="Notes (optional): how do you feel? Any insights?"></textarea>
+    <button class="btn btn-primary" onclick="logMindfulness()">
+      <i data-lucide="check"></i> Log Practice
+    </button>
+  </div>
+</div>
+
+<!-- Today's Progress -->
+{% if today_log %}
+<div class="card today-mind-card">
+  <div class="today-mind-header">
+    <h3>Today's Practice ✅</h3>
+    <span class="mind-badge">{{ today_log.duration_minutes }} min</span>
+  </div>
+  <p>{{ today_log.activity_type|replace('_',' ')|title }} · Mood: {{ today_log.mood_before }} → {{ today_log.mood_after }}
+    {% if today_log.mood_after > today_log.mood_before %}📈{% elif today_log.mood_after == today_log.mood_before %}→{% else %}📉{% endif %}</p>
+  {% if today_log.notes %}<p class="mind-notes">{{ today_log.notes }}</p>{% endif %}
+</div>
+{% endif %}
+
+<!-- Guided Practices -->
+<div class="guided-grid">
+  <div class="card guided-card">
+    <div class="guided-emoji">🧘</div>
+    <h4>5-Min Body Scan</h4>
+    <p>Release tension from head to toe with this calming meditation</p>
+    <button class="btn btn-secondary" onclick="startGuided('body_scan')">Start</button>
+  </div>
+  <div class="card guided-card">
+    <div class="guided-emoji">🌬️</div>
+    <h4>Box Breathing</h4>
+    <p>4-4-4-4 breathing to calm the nervous system instantly</p>
+    <button class="btn btn-secondary" onclick="startGuided('box_breathing')">Start</button>
+  </div>
+  <div class="card guided-card">
+    <div class="guided-emoji">🕉️</div>
+    <h4>Morning Yoga</h4>
+    <p>Energizing 10-minute sequence to awaken body and mind</p>
+    <button class="btn btn-secondary" onclick="startGuided('morning_yoga')">Start</button>
+  </div>
+  <div class="card guided-card">
+    <div class="guided-emoji">🙏</div>
+    <h4>Gratitude Practice</h4>
+    <p>5-minute guided gratitude meditation for positivity</p>
+    <button class="btn btn-secondary" onclick="startGuided('gratitude')">Start</button>
+  </div>
+</div>
+
+<!-- Breathing Timer -->
+<div class="card" id="breathingTimer" style="display:none">
+  <div class="breath-display">
+    <div class="breath-circle" id="breathCircle">
+      <span id="breathPhase">Inhale</span>
+      <span id="breathCount">4</span>
+    </div>
+    <p id="breathInstruction">Breathe in slowly...</p>
+    <div class="breath-controls">
+      <button class="btn btn-primary" onclick="startBreathing()">Start</button>
+      <button class="btn btn-ghost" onclick="stopBreathing()">Stop</button>
+    </div>
+  </div>
+</div>
+
+<!-- History -->
+{% if logs %}
+<div class="card">
+  <h3 class="card-title"><i data-lucide="history"></i> Practice History</h3>
+  <div class="mind-history">
+    {% for log in logs %}
+    <div class="mind-history-item">
+      <div class="mhi-date">{{ log.date.strftime('%b %d') }}</div>
+      <div class="mhi-icon">
+        {{ {'meditation':'🧘','yoga':'🕉️','breathing':'🌬️','walk':'🚶','journaling':'📝','stretching':'🤸','cold_shower':'🚿','gratitude':'🙏'}.get(log.activity_type,'✨') }}
+      </div>
+      <div class="mhi-info">
+        <span>{{ log.activity_type|replace('_',' ')|title }}</span>
+        <small>{{ log.duration_minutes }} min · Mood {{ log.mood_before }}→{{ log.mood_after }}</small>
+      </div>
+      <button class="btn-icon btn-delete" onclick="deleteMind({{ log.id }})">
+        <i data-lucide="trash-2"></i>
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function logMindfulness() {
+  const activity = document.querySelector('input[name="activityType"]:checked')?.value || 'meditation';
+  const duration = parseInt(document.getElementById('mindDuration').value) || 10;
+  const moodBefore = parseInt(document.getElementById('moodBefore').value);
+  const moodAfter = parseInt(document.getElementById('moodAfter').value);
+  const notes = document.getElementById('mindNotes').value;
+  try {
+    const r = await fetch('/api/mindfulness/log', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({activity_type: activity, duration_minutes: duration,
+        mood_before: moodBefore, mood_after: moodAfter, notes})
+    });
+    if ((await r.json()).success) {
+      showToast(`${duration} min ${activity} logged! 🧘`);
+      setTimeout(() => location.reload(), 900);
+    }
+  } catch(e) { showToast('Failed to log','error'); }
+}
+
+async function deleteMind(id) {
+  if (!confirm('Remove this entry?')) return;
+  await fetch(`/api/mindfulness/log/${id}`, {method:'DELETE'});
+  showToast('Removed');
+  setTimeout(() => location.reload(), 600);
+}
+
+function startGuided(type) {
+  if (type === 'box_breathing') {
+    document.getElementById('breathingTimer').style.display = 'block';
+    document.getElementById('breathingTimer').scrollIntoView({behavior:'smooth'});
+  } else {
+    const prompts = {
+      body_scan: 'Guide me through a 5-minute body scan meditation step by step',
+      morning_yoga: 'Give me a 10-minute morning yoga sequence with detailed poses and breathing cues',
+      gratitude: 'Guide me through a 5-minute gratitude meditation practice'
+    };
+    window.location.href = `/chat?prompt=${encodeURIComponent(prompts[type] || 'Guide me through a meditation')}`;
+  }
+}
+
+let breathInterval = null;
+const phases = [{name:'Inhale', dur:4},{name:'Hold', dur:4},{name:'Exhale', dur:4},{name:'Hold', dur:4}];
+let phaseIdx=0, count=4;
+
+function startBreathing() {
+  if (breathInterval) clearInterval(breathInterval);
+  phaseIdx=0; count=phases[0].dur;
+  updateBreath();
+  breathInterval = setInterval(() => {
+    count--;
+    if (count <= 0) {
+      phaseIdx = (phaseIdx+1) % phases.length;
+      count = phases[phaseIdx].dur;
+    }
+    updateBreath();
+  }, 1000);
+}
+
+function stopBreathing() {
+  if (breathInterval) clearInterval(breathInterval);
+  breathInterval = null;
+  document.getElementById('breathPhase').textContent = 'Paused';
+  document.getElementById('breathCount').textContent = '';
+}
+
+function updateBreath() {
+  const p = phases[phaseIdx];
+  document.getElementById('breathPhase').textContent = p.name;
+  document.getElementById('breathCount').textContent = count;
+  const circle = document.getElementById('breathCircle');
+  circle.className = `breath-circle phase-${p.name.toLowerCase()}`;
+  const msgs = {inhale:'Breathe in slowly...', hold:'Hold gently...', exhale:'Release completely...'};
+  document.getElementById('breathInstruction').textContent = msgs[p.name.toLowerCase()] || '';
+}
+</script>
+{% endblock %}

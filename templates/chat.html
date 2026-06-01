@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}AI Coach — Chef Builder{% endblock %}
+{% block content %}
+<div class="chat-page">
+  <!-- Chat Header -->
+  <div class="chat-header">
+    <div class="chat-avatar">
+      <div class="avatar-ring"></div>
+      <span class="avatar-emoji">🤖</span>
+    </div>
+    <div class="chat-header-info">
+      <h2>NutriAI Coach</h2>
+      <p>Your personal wellness expert · Nutrition · Fitness · Mindfulness · Recipes</p>
+    </div>
+    <div class="chat-status"><span class="status-dot"></span> Online</div>
+  </div>
+
+  <!-- Category Chips -->
+  <div class="chat-categories">
+    <button class="cat-chip active" data-cat="general" onclick="setCategory(this,'general')">🌟 General</button>
+    <button class="cat-chip" data-cat="nutrition" onclick="setCategory(this,'nutrition')">🥗 Nutrition</button>
+    <button class="cat-chip" data-cat="fitness" onclick="setCategory(this,'fitness')">💪 Fitness</button>
+    <button class="cat-chip" data-cat="recipes" onclick="setCategory(this,'recipes')">🍳 Recipes</button>
+    <button class="cat-chip" data-cat="mindfulness" onclick="setCategory(this,'mindfulness')">🧘 Mindfulness</button>
+    <button class="cat-chip" data-cat="mental_health" onclick="setCategory(this,'mental_health')">🧠 Mental Health</button>
+  </div>
+
+  <!-- Quick prompts -->
+  <div class="quick-prompts" id="quickPrompts">
+    <p class="quick-label">Suggested questions:</p>
+    <div class="prompts-scroll">
+      <button class="prompt-chip" onclick="sendQuick(this)">What nutrients am I missing today?</button>
+      <button class="prompt-chip" onclick="sendQuick(this)">Suggest a high-protein dinner recipe</button>
+      <button class="prompt-chip" onclick="sendQuick(this)">Give me a 10-minute morning yoga routine</button>
+      <button class="prompt-chip" onclick="sendQuick(this)">How can I improve my sleep with nutrition?</button>
+      <button class="prompt-chip" onclick="sendQuick(this)">Best foods for brain focus and energy</button>
+      <button class="prompt-chip" onclick="sendQuick(this)">Explain the gut-brain connection</button>
+      <button class="prompt-chip" onclick="sendQuick(this)">Adaptogens for stress reduction</button>
+      <button class="prompt-chip" onclick="sendQuick(this)">Anti-inflammatory meal plan ideas</button>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages" id="chatMessages">
+    {% if messages %}
+      {% for msg in messages %}
+      <div class="chat-msg {{ 'msg-user' if msg.role=='user' else 'msg-ai' }}">
+        {% if msg.role == 'assistant' %}
+        <div class="msg-avatar-sm">🤖</div>
+        {% endif %}
+        <div class="msg-bubble">
+          <div class="msg-content">{{ msg.content }}</div>
+          <div class="msg-time">{{ msg.created_at.strftime('%I:%M %p') }}</div>
+        </div>
+        {% if msg.role == 'user' %}
+        <div class="msg-avatar-sm user-avatar">{{ profile.name[0]|upper if profile else 'U' }}</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+    <div class="chat-welcome">
+      <div class="welcome-icon">🌟</div>
+      <h3>Welcome to NutriAI Coach!</h3>
+      <p>I'm your personal AI wellness expert. Ask me anything about nutrition, fitness, recipes, yoga, meditation, brain health, and more. I also have access to your daily nutrition data to give you personalized guidance.</p>
+    </div>
+    {% endif %}
+    <div class="typing-indicator" id="typingIndicator" style="display:none">
+      <div class="msg-avatar-sm">🤖</div>
+      <div class="typing-bubble"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="chat-input-wrap">
+    <div class="chat-input-box">
+      <textarea id="chatInput" class="chat-input" placeholder="Ask about nutrition, recipes, fitness, mindfulness..." rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
+        oninput="autoResize(this)"></textarea>
+      <button class="chat-send-btn" onclick="sendMessage()" id="sendBtn">
+        <i data-lucide="send"></i>
+      </button>
+    </div>
+    <p class="chat-disclaimer">NutriAI provides wellness guidance. Consult a healthcare provider for medical advice.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentCategory = 'general';
+const messagesDiv = document.getElementById('chatMessages');
+
+function setCategory(el, cat) {
+  currentCategory = cat;
+  document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const prompts = {
+    general: ['What nutrients am I missing today?', 'Give me a wellness tip', 'How can I feel more energized?', 'Best habits for longevity'],
+    nutrition: ['Analyze my protein intake', 'What are the best sources of omega-3?', 'Explain essential amino acids', 'How to improve iron absorption?'],
+    fitness: ['Best exercises for fat loss', 'Post-workout meal ideas', 'How to build muscle on a plant-based diet', 'HIIT vs steady-state cardio'],
+    recipes: ['High-protein breakfast ideas', 'Anti-inflammatory dinner recipe', 'Meal prep ideas for the week', 'Healthy dessert alternatives'],
+    mindfulness: ['Guide me through a 5-minute meditation', 'Morning yoga sequence for energy', 'Breathing techniques for anxiety', 'Evening wind-down routine'],
+    mental_health: ['Foods that boost serotonin', 'Nutrition for anxiety and depression', 'How does gut health affect mood?', 'Adaptogens for stress']
+  };
+  const chips = prompts[cat] || prompts.general;
+  document.querySelector('.prompts-scroll').innerHTML = chips.map(p =>
+    `<button class="prompt-chip" onclick="sendQuick(this)">${p}</button>`).join('');
+}
+
+function sendQuick(el) {
+  document.getElementById('chatInput').value = el.textContent;
+  sendMessage();
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function appendMessage(role, content) {
+  const isUser = role === 'user';
+  const time = new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'});
+  const avatar = isUser ? `<div class="msg-avatar-sm user-avatar">{{ profile.name[0]|upper if profile else 'U' }}</div>` : '<div class="msg-avatar-sm">🤖</div>';
+  const html = `<div class="chat-msg ${isUser ? 'msg-user' : 'msg-ai'}">
+    ${!isUser ? avatar : ''}
+    <div class="msg-bubble">
+      <div class="msg-content">${content.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>')}</div>
+      <div class="msg-time">${time}</div>
+    </div>
+    ${isUser ? avatar : ''}
+  </div>`;
+  const typing = document.getElementById('typingIndicator');
+  typing.insertAdjacentHTML('beforebegin', html);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('quickPrompts').style.display = 'none';
+
+  const welcome = document.querySelector('.chat-welcome');
+  if (welcome) welcome.remove();
+
+  appendMessage('user', msg);
+  document.getElementById('typingIndicator').style.display = 'flex';
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({message: msg, category: currentCategory})
+    });
+    const d = await r.json();
+    document.getElementById('typingIndicator').style.display = 'none';
+    appendMessage('assistant', d.reply || d.error || 'Sorry, something went wrong.');
+  } catch(e) {
+    document.getElementById('typingIndicator').style.display = 'none';
+    appendMessage('assistant', 'Connection error. Please check your API key in the .env file.');
+  }
+  document.getElementById('sendBtn').disabled = false;
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// Scroll to bottom on load
+window.addEventListener('DOMContentLoaded', () => {
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+});
+</script>
+{% endblock %}

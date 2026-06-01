@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Recipes — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">AI-powered suggestions based on your nutrition</p>
+    <h1 class="page-title">Recipe <span class="accent">Studio</span></h1>
+  </div>
+</div>
+
+<!-- Recipe Generator -->
+<div class="card recipe-gen-card">
+  <div class="gen-header">
+    <div class="gen-icon">🤖</div>
+    <div>
+      <h3>AI Recipe Generator</h3>
+      <p>Get personalized recipes based on your nutritional gaps and preferences</p>
+    </div>
+  </div>
+  <div class="gen-controls">
+    <input type="text" id="recipePrefs" class="input" placeholder="Optional: dietary preferences, cuisine, ingredients you have..."/>
+    <button class="btn btn-primary btn-lg" onclick="generateRecipes()" id="genBtn">
+      <i data-lucide="sparkles"></i> Generate Recipes
+    </button>
+  </div>
+</div>
+
+<!-- Meal Analyzer -->
+<div class="card meal-analyzer-card">
+  <h3 class="card-title"><i data-lucide="scan-search"></i> Meal Analyzer & Optimizer</h3>
+  <p class="card-desc">Paste any recipe and AI will suggest improvements for better nutrition</p>
+  <div class="analyzer-form">
+    <input type="text" id="mealName" class="input" placeholder="Meal name (e.g. Pasta Bolognese)"/>
+    <textarea id="mealIngredients" class="input textarea" rows="3" placeholder="Ingredients (e.g. 200g pasta, 100g ground beef, tomato sauce, cheese...)"></textarea>
+    <button class="btn btn-secondary" onclick="analyzeMeal()" id="analyzeBtn">
+      <i data-lucide="wand-2"></i> Analyze & Optimize
+    </button>
+  </div>
+  <div class="analysis-result" id="analysisResult" style="display:none">
+    <h4>AI Analysis</h4>
+    <div id="analysisText"></div>
+  </div>
+</div>
+
+<!-- Generated Recipes -->
+<div id="recipesContainer"></div>
+
+<!-- World Cuisine Cards -->
+<div class="card">
+  <h3 class="card-title"><i data-lucide="globe"></i> Explore World Cuisines</h3>
+  <p class="card-desc">Click a cuisine to get AI-crafted authentic recipes</p>
+  <div class="cuisine-grid">
+    {% set cuisines = [
+      ('🇯🇵','Japanese','Light, umami-rich, longevity foods'),
+      ('🇮🇳','Indian','Spices, anti-inflammatory, plant-rich'),
+      ('🇲🇽','Mexican','Legumes, fresh produce, bold flavors'),
+      ('🇹🇭','Thai','Herbs, healthy fats, vibrant nutrition'),
+      ('🇮🇹','Italian','Mediterranean, heart-healthy'),
+      ('🇲🇦','Moroccan','Ancient spices, diverse nutrients'),
+      ('🇰🇷','Korean','Fermented, gut-friendly, balanced'),
+      ('🇵🇪','Peruvian','Superfoods, unique ingredients'),
+    ] %}
+    {% for flag, name, desc in cuisines %}
+    <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+      <div class="cuisine-flag">{{ flag }}</div>
+      <div class="cuisine-name">{{ name }}</div>
+      <div class="cuisine-desc">{{ desc }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Recipe Modal -->
+<div class="modal-overlay" id="recipeModal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function generateRecipes() {
+  const btn = document.getElementById('genBtn');
+  const prefs = document.getElementById('recipePrefs').value;
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Generating...';
+  lucide.createIcons();
+
+  const container = document.getElementById('recipesContainer');
+  container.innerHTML = '<div class="loading-recipes"><div class="loading-spinner"></div><p>AI is crafting personalized recipes for your nutrition gaps...</p></div>';
+
+  try {
+    const r = await fetch('/api/recipes/suggest', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({preferences: prefs})
+    });
+    const data = await r.json();
+    if (data.recipes && data.recipes.length) {
+      container.innerHTML = `<div class="section-header"><h2 class="section-title"><i data-lucide="chef-hat"></i> AI Recommended Recipes</h2></div>
+        <div class="recipes-grid">${data.recipes.map(renderRecipeCard).join('')}</div>`;
+      lucide.createIcons();
+    } else if (data.raw) {
+      container.innerHTML = `<div class="card"><p>${data.raw}</p></div>`;
+    }
+  } catch(e) {
+    container.innerHTML = '<div class="card"><p class="text-red">Failed to generate recipes. Check your API key.</p></div>';
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="sparkles"></i> Generate Recipes';
+  lucide.createIcons();
+}
+
+function renderRecipeCard(r) {
+  const nutrients = r.nutrients_addressed?.join(', ') || '';
+  return `<div class="recipe-card" onclick='openRecipe(${JSON.stringify(r)})'>
+    <div class="recipe-emoji">${r.emoji || '🍽️'}</div>
+    <div class="recipe-info">
+      <h4 class="recipe-name">${r.name}</h4>
+      <p class="recipe-desc">${r.description || ''}</p>
+      <div class="recipe-meta">
+        <span><i data-lucide="clock"></i> ${r.time}</span>
+        <span><i data-lucide="bar-chart"></i> ${r.difficulty}</span>
+        ${r.nutrition_per_serving ? `<span>🔥 ${r.nutrition_per_serving.calories} kcal</span>` : ''}
+      </div>
+      ${nutrients ? `<div class="recipe-nutrients">Boosts: ${nutrients}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function openRecipe(r) {
+  const n = r.nutrition_per_serving || {};
+  document.getElementById('modalContent').innerHTML = `
+    <div class="recipe-modal-header">
+      <div class="recipe-modal-emoji">${r.emoji || '🍽️'}</div>
+      <div>
+        <h2>${r.name}</h2>
+        <div class="recipe-meta">
+          <span><i data-lucide="clock"></i> ${r.time}</span>
+          <span><i data-lucide="bar-chart"></i> ${r.difficulty}</span>
+        </div>
+      </div>
+    </div>
+    ${r.description ? `<p class="recipe-modal-desc">${r.description}</p>` : ''}
+    ${n.calories ? `<div class="recipe-macros-bar">
+      <div class="rmb-item"><span class="rmb-val">🔥 ${n.calories}</span><span>kcal</span></div>
+      <div class="rmb-item"><span class="rmb-val">💪 ${n.protein}g</span><span>protein</span></div>
+      <div class="rmb-item"><span class="rmb-val">🌾 ${n.carbs}g</span><span>carbs</span></div>
+      <div class="rmb-item"><span class="rmb-val">🥑 ${n.fat}g</span><span>fat</span></div>
+    </div>` : ''}
+    ${r.nutrients_addressed?.length ? `<div class="recipe-tags">${r.nutrients_addressed.map(n=>`<span class="tag">${n}</span>`).join('')}</div>` : ''}
+    <div class="recipe-sections">
+      <div>
+        <h4><i data-lucide="list"></i> Ingredients</h4>
+        <ul class="ingredients-list">${(r.ingredients||[]).map(i=>`<li>${i}</li>`).join('')}</ul>
+      </div>
+      <div>
+        <h4><i data-lucide="chef-hat"></i> Steps</h4>
+        <ol class="steps-list">${(r.steps||[]).map(s=>`<li>${s}</li>`).join('')}</ol>
+      </div>
+    </div>
+    ${r.chef_tip ? `<div class="chef-tip"><i data-lucide="lightbulb"></i> <strong>Chef's Tip:</strong> ${r.chef_tip}</div>` : ''}`;
+  document.getElementById('recipeModal').style.display = 'flex';
+  lucide.createIcons();
+}
+
+function closeModal() {
+  document.getElementById('recipeModal').style.display = 'none';
+}
+
+async function analyzeMeal() {
+  const btn = document.getElementById('analyzeBtn');
+  const name = document.getElementById('mealName').value.trim();
+  const ingredients = document.getElementById('mealIngredients').value.trim();
+  if (!name && !ingredients) { showToast('Enter a meal name or ingredients','error'); return; }
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Analyzing...';
+  lucide.createIcons();
+
+  try {
+    const r = await fetch('/api/meal/analyze', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({food_name: name, ingredients})
+    });
+    const d = await r.json();
+    document.getElementById('analysisText').innerHTML = d.analysis?.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>') || d.error;
+    document.getElementById('analysisResult').style.display = 'block';
+  } catch(e) {
+    showToast('Analysis failed','error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="wand-2"></i> Analyze & Optimize';
+  lucide.createIcons();
+}
+
+async function getCuisineRecipe(cuisine) {
+  document.getElementById('recipePrefs').value = `${cuisine} cuisine, authentic and nutritious`;
+  await generateRecipes();
+  document.getElementById('recipesContainer').scrollIntoView({behavior:'smooth'});
+}
+</script>
+{% endblock %}

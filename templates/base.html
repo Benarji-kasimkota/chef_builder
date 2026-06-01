@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{% block title %}Chef Builder — AI Wellness{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+{% block head %}{% endblock %}
+</head>
+<body>
+<!-- Ambient background -->
+<div class="ambient-bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">🍃</div>
+    <span class="brand-text">Chef<span class="accent">Builder</span></span>
+  </div>
+  <div class="sidebar-nav">
+    <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+      <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+    </a>
+    <a href="/log" class="nav-item {% if request.path == '/log' %}active{% endif %}">
+      <i data-lucide="utensils"></i><span>Food Log</span>
+    </a>
+    <a href="/chat" class="nav-item {% if request.path == '/chat' %}active{% endif %}">
+      <i data-lucide="bot"></i><span>AI Coach</span>
+    </a>
+    <a href="/recipes" class="nav-item {% if request.path == '/recipes' %}active{% endif %}">
+      <i data-lucide="chef-hat"></i><span>Recipes</span>
+    </a>
+    <a href="/mindfulness" class="nav-item {% if request.path == '/mindfulness' %}active{% endif %}">
+      <i data-lucide="brain"></i><span>Mindfulness</span>
+    </a>
+    <div class="nav-divider"></div>
+    <a href="/profile" class="nav-item {% if request.path == '/profile' %}active{% endif %}">
+      <i data-lucide="user-circle"></i><span>Profile</span>
+    </a>
+  </div>
+  <div class="sidebar-footer">
+    <div class="ai-badge">
+      <i data-lucide="sparkles"></i>
+      <span>Powered by Claude AI</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile nav toggle -->
+<button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+  <i data-lucide="menu"></i>
+</button>
+<div class="nav-overlay" id="navOverlay"></div>
+
+<!-- Main content -->
+<main class="main-content" id="main">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav">
+  <a href="/" class="mobile-nav-item {% if request.path == '/' %}active{% endif %}">
+    <i data-lucide="layout-dashboard"></i><span>Home</span>
+  </a>
+  <a href="/log" class="mobile-nav-item {% if request.path == '/log' %}active{% endif %}">
+    <i data-lucide="utensils"></i><span>Log</span>
+  </a>
+  <a href="/chat" class="mobile-nav-item {% if request.path == '/chat' %}active{% endif %}">
+    <i data-lucide="bot"></i><span>AI</span>
+  </a>
+  <a href="/recipes" class="mobile-nav-item {% if request.path == '/recipes' %}active{% endif %}">
+    <i data-lucide="chef-hat"></i><span>Recipes</span>
+  </a>
+  <a href="/mindfulness" class="mobile-nav-item {% if request.path == '/mindfulness' %}active{% endif %}">
+    <i data-lucide="brain"></i><span>Mind</span>
+  </a>
+</nav>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+lucide.createIcons();
+document.getElementById('navToggle')?.addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('navOverlay').classList.toggle('visible');
+});
+document.getElementById('navOverlay')?.addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('navOverlay').classList.remove('visible');
+});
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

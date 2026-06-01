@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Profile — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">Your wellness profile</p>
+    <h1 class="page-title">My <span class="accent">Profile</span></h1>
+  </div>
+  <button class="btn btn-primary" onclick="saveProfile()">
+    <i data-lucide="save"></i> Save Profile
+  </button>
+</div>
+
+<div class="two-col-grid">
+  <div class="card">
+    <h3 class="card-title"><i data-lucide="user"></i> Personal Info</h3>
+    <div class="profile-form">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="pName" class="input" value="{{ profile.name }}" placeholder="Your name"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Age</label>
+          <input type="number" id="pAge" class="input" value="{{ profile.age }}" min="10" max="120"/>
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select id="pGender" class="input select-input">
+            <option value="male" {% if profile.gender=='male' %}selected{% endif %}>Male</option>
+            <option value="female" {% if profile.gender=='female' %}selected{% endif %}>Female</option>
+            <option value="other" {% if profile.gender=='other' %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Weight (kg)</label>
+          <input type="number" id="pWeight" class="input" value="{{ profile.weight_kg }}" step="0.5" min="20" max="300"/>
+        </div>
+        <div class="form-group">
+          <label>Height (cm)</label>
+          <input type="number" id="pHeight" class="input" value="{{ profile.height_cm }}" step="0.5" min="100" max="250"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title"><i data-lucide="target"></i> Goals & Lifestyle</h3>
+    <div class="profile-form">
+      <div class="form-group">
+        <label>Activity Level</label>
+        <select id="pActivity" class="input select-input">
+          <option value="sedentary" {% if profile.activity_level=='sedentary' %}selected{% endif %}>🛋️ Sedentary (desk job, no exercise)</option>
+          <option value="light" {% if profile.activity_level=='light' %}selected{% endif %}>🚶 Light (exercise 1-3x/week)</option>
+          <option value="moderate" {% if profile.activity_level=='moderate' %}selected{% endif %}>🚴 Moderate (exercise 3-5x/week)</option>
+          <option value="active" {% if profile.activity_level=='active' %}selected{% endif %}>🏃 Active (hard exercise 6-7x/week)</option>
+          <option value="very_active" {% if profile.activity_level=='very_active' %}selected{% endif %}>⚡ Very Active (athlete/physical job)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Goal</label>
+        <div class="goal-picker">
+          <label class="goal-option">
+            <input type="radio" name="goal" value="lose" {% if profile.goal=='lose' %}checked{% endif %}/>
+            <span class="goal-btn">⬇️<br>Lose Weight</span>
+          </label>
+          <label class="goal-option">
+            <input type="radio" name="goal" value="maintain" {% if profile.goal=='maintain' %}checked{% endif %}/>
+            <span class="goal-btn">⚖️<br>Maintain</span>
+          </label>
+          <label class="goal-option">
+            <input type="radio" name="goal" value="gain" {% if profile.goal=='gain' %}checked{% endif %}/>
+            <span class="goal-btn">⬆️<br>Gain Muscle</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Dietary Preference</label>
+        <select id="pDiet" class="input select-input">
+          <option value="omnivore" {% if profile.dietary_preference=='omnivore' %}selected{% endif %}>🍖 Omnivore</option>
+          <option value="vegetarian" {% if profile.dietary_preference=='vegetarian' %}selected{% endif %}>🌿 Vegetarian</option>
+          <option value="vegan" {% if profile.dietary_preference=='vegan' %}selected{% endif %}>🌱 Vegan</option>
+          <option value="pescatarian" {% if profile.dietary_preference=='pescatarian' %}selected{% endif %}>🐟 Pescatarian</option>
+          <option value="keto" {% if profile.dietary_preference=='keto' %}selected{% endif %}>🥑 Keto</option>
+          <option value="paleo" {% if profile.dietary_preference=='paleo' %}selected{% endif %}>🦕 Paleo</option>
+          <option value="mediterranean" {% if profile.dietary_preference=='mediterranean' %}selected{% endif %}>🫒 Mediterranean</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Allergies / Intolerances</label>
+        <input type="text" id="pAllergies" class="input" value="{{ profile.allergies }}" placeholder="e.g. gluten, nuts, dairy..."/>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BMR/TDEE Card -->
+<div class="card bmr-card" id="bmrCard">
+  <h3 class="card-title"><i data-lucide="flame"></i> Your Energy Needs</h3>
+  <div class="bmr-grid" id="bmrGrid">
+    <div class="bmr-item"><span class="bmr-val" id="bmrVal">–</span><span>BMR (kcal/day)</span></div>
+    <div class="bmr-item"><span class="bmr-val" id="tdeeVal">–</span><span>TDEE (kcal/day)</span></div>
+    <div class="bmr-item"><span class="bmr-val" id="targetVal">–</span><span>Your Target</span></div>
+    <div class="bmr-item"><span class="bmr-val" id="proteinVal">–</span><span>Protein Target (g)</span></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function calcBMR() {
+  const age = parseInt(document.getElementById('pAge').value)||30;
+  const gender = document.getElementById('pGender').value;
+  const weight = parseFloat(document.getElementById('pWeight').value)||70;
+  const height = parseFloat(document.getElementById('pHeight').value)||170;
+  const activity = document.getElementById('pActivity').value;
+  const goal = document.querySelector('input[name="goal"]:checked')?.value || 'maintain';
+
+  let bmr = gender==='male'
+    ? 88.362 + 13.397*weight + 4.799*height - 5.677*age
+    : 447.593 + 9.247*weight + 3.098*height - 4.330*age;
+
+  const mults = {sedentary:1.2,light:1.375,moderate:1.55,active:1.725,very_active:1.9};
+  const tdee = bmr * (mults[activity]||1.55);
+  const target = goal==='lose' ? tdee-500 : goal==='gain' ? tdee+300 : tdee;
+  const protein = goal==='gain' ? weight*1.6 : weight*1.2;
+
+  document.getElementById('bmrVal').textContent = Math.round(bmr);
+  document.getElementById('tdeeVal').textContent = Math.round(tdee);
+  document.getElementById('targetVal').textContent = Math.round(target);
+  document.getElementById('proteinVal').textContent = Math.round(protein);
+}
+
+async function saveProfile() {
+  const data = {
+    name: document.getElementById('pName').value,
+    age: document.getElementById('pAge').value,
+    gender: document.getElementById('pGender').value,
+    weight_kg: document.getElementById('pWeight').value,
+    height_cm: document.getElementById('pHeight').value,
+    activity_level: document.getElementById('pActivity').value,
+    goal: document.querySelector('input[name="goal"]:checked')?.value || 'maintain',
+    dietary_preference: document.getElementById('pDiet').value,
+    allergies: document.getElementById('pAllergies').value
+  };
+  try {
+    const r = await fetch('/api/profile', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    if ((await r.json()).success) {
+      showToast('Profile saved!');
+      calcBMR();
+    }
+  } catch(e) { showToast('Failed to save','error'); }
+}
+
+// Recalculate on change
+['pAge','pWeight','pHeight','pActivity','pGender'].forEach(id =>
+  document.getElementById(id)?.addEventListener('input', calcBMR));
+document.querySelectorAll('input[name="goal"]').forEach(el => el.addEventListener('change', calcBMR));
+calcBMR();
+</script>
+{% endblock %}

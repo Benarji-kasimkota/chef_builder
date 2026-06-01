@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">{{ today }}</p>
+    <h1 class="page-title">Good {% if now.hour < 12 %}Morning{% elif now.hour < 17 %}Afternoon{% else %}Evening{% endif %}, <span class="accent">{{ profile.name }}</span> 👋</h1>
+  </div>
+  <a href="/log" class="btn btn-primary">
+    <i data-lucide="plus"></i> Log Food
+  </a>
+</div>
+
+<!-- Activity Rings + Today Stats -->
+<div class="rings-stats-grid">
+  <!-- Activity Rings -->
+  <div class="card rings-card">
+    <h3 class="card-title"><i data-lucide="activity"></i> Today's Rings</h3>
+    <div class="rings-wrapper">
+      <svg viewBox="0 0 200 200" class="rings-svg" id="activityRings">
+        <!-- Outer ring: Calories -->
+        <circle class="ring-track" r="85" cx="100" cy="100" />
+        <circle class="ring-progress ring-cal" r="85" cx="100" cy="100"
+          stroke-dasharray="{{ (2 * 3.14159 * 85)|round(1) }} {{ (2 * 3.14159 * 85)|round(1) }}"
+          stroke-dashoffset="{{ ((2 * 3.14159 * 85) * (1 - cal_pct/100))|round(1) }}"
+          data-pct="{{ cal_pct }}"/>
+        <!-- Middle ring: Protein -->
+        <circle class="ring-track" r="65" cx="100" cy="100" />
+        <circle class="ring-progress ring-protein" r="65" cx="100" cy="100"
+          stroke-dasharray="{{ (2 * 3.14159 * 65)|round(1) }} {{ (2 * 3.14159 * 65)|round(1) }}"
+          stroke-dashoffset="{{ ((2 * 3.14159 * 65) * (1 - protein_pct/100))|round(1) }}"
+          data-pct="{{ protein_pct }}"/>
+        <!-- Inner ring: Mindfulness -->
+        <circle class="ring-track" r="45" cx="100" cy="100" />
+        <circle class="ring-progress ring-mind" r="45" cx="100" cy="100"
+          stroke-dasharray="{{ (2 * 3.14159 * 45)|round(1) }} {{ (2 * 3.14159 * 45)|round(1) }}"
+          stroke-dashoffset="{{ ((2 * 3.14159 * 45) * (1 - mind_pct/100))|round(1) }}"
+          data-pct="{{ mind_pct }}"/>
+      </svg>
+      <div class="rings-legend">
+        <div class="legend-item"><span class="legend-dot cal"></span><div><strong>{{ totals.calories|round|int }} kcal</strong><small>Calories</small></div></div>
+        <div class="legend-item"><span class="legend-dot prot"></span><div><strong>{{ totals.protein|round(1) }}g</strong><small>Protein</small></div></div>
+        <div class="legend-item"><span class="legend-dot mind"></span><div><strong>{{ mind_pct|round|int }}%</strong><small>Mindfulness</small></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Macro Stats -->
+  <div class="stats-grid">
+    <div class="stat-card cal-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-value">{{ totals.calories|round|int }}</div>
+      <div class="stat-label">Calories</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ cal_pct }}%;background:var(--ring-cal)"></div></div>
+      <div class="stat-target">/ {{ rda.calories }} kcal</div>
+    </div>
+    <div class="stat-card prot-card">
+      <div class="stat-icon">💪</div>
+      <div class="stat-value">{{ totals.protein|round(1) }}g</div>
+      <div class="stat-label">Protein</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ protein_pct }}%;background:var(--ring-protein)"></div></div>
+      <div class="stat-target">/ {{ rda.protein }}g</div>
+    </div>
+    <div class="stat-card carb-card">
+      <div class="stat-icon">🌾</div>
+      <div class="stat-value">{{ totals.carbs|round(1) }}g</div>
+      <div class="stat-label">Carbs</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ [totals.carbs/rda.carbs*100, 100]|min|round }}%;background:var(--accent-amber)"></div></div>
+      <div class="stat-target">/ {{ rda.carbs }}g</div>
+    </div>
+    <div class="stat-card fat-card">
+      <div class="stat-icon">🥑</div>
+      <div class="stat-value">{{ totals.fat|round(1) }}g</div>
+      <div class="stat-label">Fat</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ [totals.fat/rda.fat*100, 100]|min|round }}%;background:var(--accent-violet)"></div></div>
+      <div class="stat-target">/ {{ rda.fat }}g</div>
+    </div>
+    <div class="stat-card omega-card">
+      <div class="stat-icon">🐟</div>
+      <div class="stat-value">{{ totals.omega3|round(2) }}g</div>
+      <div class="stat-label">Omega-3</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ [totals.omega3/rda.omega3*100, 100]|min|round }}%;background:var(--accent-teal)"></div></div>
+      <div class="stat-target">/ {{ rda.omega3 }}g</div>
+    </div>
+    <div class="stat-card fiber-card">
+      <div class="stat-icon">🌿</div>
+      <div class="stat-value">{{ totals.fiber|round(1) }}g</div>
+      <div class="stat-label">Fiber</div>
+      <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ [totals.fiber/rda.fiber*100, 100]|min|round }}%;background:var(--accent-green)"></div></div>
+      <div class="stat-target">/ {{ rda.fiber }}g</div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Insight -->
+<div class="card ai-insight-card" id="insightCard">
+  <div class="insight-icon">✨</div>
+  <div class="insight-body">
+    <h4>AI Daily Insight</h4>
+    <p id="insightText">Loading your personalized insight...</p>
+  </div>
+  <button class="insight-refresh" onclick="loadInsight()" title="Refresh">
+    <i data-lucide="refresh-cw"></i>
+  </button>
+</div>
+
+<!-- Calendar -->
+<div class="card calendar-card">
+  <div class="card-header">
+    <h3 class="card-title"><i data-lucide="calendar"></i> Monthly Overview</h3>
+    <div class="calendar-legend">
+      <span><span class="legend-dot cal"></span> Calories</span>
+      <span><span class="legend-dot prot"></span> Protein</span>
+      <span><span class="legend-dot mind"></span> Mind</span>
+    </div>
+  </div>
+  <div class="calendar-grid" id="calendarGrid">
+    <div class="cal-loading">Loading calendar...</div>
+  </div>
+</div>
+
+<!-- Today's Meals + Deficiencies -->
+<div class="two-col-grid">
+  <!-- Today's Meals -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title"><i data-lucide="list"></i> Today's Meals</h3>
+      <a href="/log" class="btn btn-sm btn-ghost">View All</a>
+    </div>
+    {% if logs %}
+    <div class="meal-list">
+      {% for log in logs %}
+      <div class="meal-item">
+        <div class="meal-icon">{{ {'breakfast':'🌅','lunch':'☀️','dinner':'🌙','snack':'🍎'}.get(log.meal_type,'🍽️') }}</div>
+        <div class="meal-info">
+          <span class="meal-name">{{ log.food_name }}</span>
+          <span class="meal-meta">{{ log.meal_type|title }} · {{ log.quantity_g|round|int }}g</span>
+        </div>
+        <div class="meal-cal">{{ log.nutrition.get('calories', 0)|round|int }} kcal</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <span class="empty-icon">🍽️</span>
+      <p>No meals logged today</p>
+      <a href="/log" class="btn btn-primary btn-sm">Add First Meal</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Top Deficiencies -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title"><i data-lucide="alert-triangle"></i> Nutrient Status</h3>
+      <a href="/log" class="btn btn-sm btn-ghost">Details</a>
+    </div>
+    <div class="deficiency-list">
+      {% set shown = namespace(count=0) %}
+      {% for key, pct in deficiencies.vitamins.items() %}
+        {% if shown.count < 4 %}
+          <div class="def-item">
+            <span class="def-name">{{ vitamin_names[key] }}</span>
+            <div class="def-bar-wrap">
+              <div class="def-bar" style="width:{{ [pct,100]|min }}%;background:{% if pct>=80 %}var(--accent-green){% elif pct>=40 %}var(--accent-amber){% else %}var(--accent-red){% endif %}"></div>
+            </div>
+            <span class="def-pct {% if pct>=80 %}text-green{% elif pct>=40 %}text-amber{% else %}text-red{% endif %}">{{ pct|round|int }}%</span>
+          </div>
+          {% set shown.count = shown.count + 1 %}
+        {% endif %}
+      {% endfor %}
+      {% for key, pct in deficiencies.minerals.items() %}
+        {% if shown.count < 8 %}
+          <div class="def-item">
+            <span class="def-name">{{ mineral_names[key] }}</span>
+            <div class="def-bar-wrap">
+              <div class="def-bar" style="width:{{ [pct,100]|min }}%;background:{% if pct>=80 %}var(--accent-green){% elif pct>=40 %}var(--accent-amber){% else %}var(--accent-red){% endif %}"></div>
+            </div>
+            <span class="def-pct {% if pct>=80 %}text-green{% elif pct>=40 %}text-amber{% else %}text-red{% endif %}">{{ pct|round|int }}%</span>
+          </div>
+          {% set shown.count = shown.count + 1 %}
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadInsight() {
+  const el = document.getElementById('insightText');
+  el.textContent = 'Getting your personalized insight...';
+  try {
+    const r = await fetch('/api/insight');
+    const d = await r.json();
+    el.textContent = d.insight;
+  } catch(e) {
+    el.textContent = 'Log your meals today to get AI insights!';
+  }
+}
+
+async function loadCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  try {
+    const r = await fetch('/api/calendar');
+    const data = await r.json();
+    const dates = Object.keys(data).sort();
+    if (!dates.length) return;
+    const firstDate = new Date(dates[0] + 'T00:00:00');
+    const year = firstDate.getFullYear();
+    const month = firstDate.getMonth();
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const today = new Date().toISOString().split('T')[0];
+    let html = '<div class="cal-day-headers">';
+    dayNames.forEach(d => html += `<div class="cal-day-header">${d}</div>`);
+    html += '</div><div class="cal-days">';
+    const startDow = firstDate.getDay();
+    for (let i = 0; i < startDow; i++) html += '<div class="cal-empty"></div>';
+    dates.forEach(dateStr => {
+      const d = data[dateStr];
+      const isToday = dateStr === today;
+      const dayNum = new Date(dateStr + 'T00:00:00').getDate();
+      const calPct = d.cal_pct;
+      const protPct = d.protein_pct;
+      const mindPct = d.mind_pct;
+      const calCirc = 2 * Math.PI * 14;
+      const protCirc = 2 * Math.PI * 10;
+      const mindCirc = 2 * Math.PI * 6;
+      html += `<div class="cal-day ${isToday ? 'today' : ''} ${d.has_data ? 'has-data' : ''}" title="${dateStr}: ${d.calories} kcal">
+        <span class="cal-day-num">${dayNum}</span>
+        ${d.has_data ? `<svg viewBox="0 0 40 40" class="cal-rings">
+          <circle class="cr-track" r="14" cx="20" cy="20"/>
+          <circle class="cr-cal" r="14" cx="20" cy="20"
+            stroke-dasharray="${calCirc.toFixed(1)} ${calCirc.toFixed(1)}"
+            stroke-dashoffset="${(calCirc * (1 - calPct/100)).toFixed(1)}"/>
+          <circle class="cr-track" r="10" cx="20" cy="20"/>
+          <circle class="cr-prot" r="10" cx="20" cy="20"
+            stroke-dasharray="${protCirc.toFixed(1)} ${protCirc.toFixed(1)}"
+            stroke-dashoffset="${(protCirc * (1 - protPct/100)).toFixed(1)}"/>
+          <circle class="cr-track" r="6" cx="20" cy="20"/>
+          <circle class="cr-mind" r="6" cx="20" cy="20"
+            stroke-dasharray="${mindCirc.toFixed(1)} ${mindCirc.toFixed(1)}"
+            stroke-dashoffset="${(mindCirc * (1 - mindPct/100)).toFixed(1)}"/>
+        </svg>` : ''}
+      </div>`;
+    });
+    html += '</div>';
+    grid.innerHTML = html;
+  } catch(e) {
+    grid.innerHTML = '<p class="text-muted">Could not load calendar</p>';
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadInsight();
+  loadCalendar();
+  // Animate rings in
+  document.querySelectorAll('.ring-progress').forEach(el => {
+    el.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1)';
+  });
+});
+
+// Add now to template context via JS
+document.querySelector('.page-title') && (() => {
+  const h = new Date().getHours();
+  const greeting = h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening';
+  const titleEl = document.querySelector('.page-title');
+  if (titleEl) titleEl.innerHTML = titleEl.innerHTML.replace(/Morning|Afternoon|Evening/, greeting);
+})();
+</script>
+{% endblock %}
