@@ -360,6 +360,10 @@ body {
 
 /* ── Chat Page ── */
 .chat-page { display: flex; flex-direction: column; height: calc(100vh - 56px); max-width: 800px; }
+@media (max-width: 900px) {
+  /* subtract mobile bottom nav height (58px) so input isn't hidden behind it */
+  .chat-page { height: calc(100vh - 56px - 58px); }
+}
 .chat-header {
   display: flex; align-items: center; gap: 16px; padding: 16px 20px;
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
