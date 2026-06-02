@@ -1,12 +1,15 @@
 import os
+import io
+import csv
 import json
+import base64
 import httpx
 from datetime import date, timedelta, datetime
 from collections import defaultdict
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, Response
 from dotenv import load_dotenv
 from database import db
-from models import UserProfile, FoodLog, MindfulnessLog, WeightLog, ChatMessage
+from models import UserProfile, FoodLog, MindfulnessLog, WeightLog, WaterLog, ChatMessage
 from nutrition_data import (
     FOOD_DATABASE, RDA, VITAMIN_NAMES, VITAMIN_UNITS, MINERAL_NAMES,
     AMINO_ACID_NAMES, AMINO_ACID_ROLES, search_food_local,
@@ -38,13 +41,8 @@ def get_today_logs():
 
 
 def logs_to_nutrition_list(logs):
-    result = []
-    for log in logs:
-        result.append({
-            "quantity": log.quantity_g,
-            "nutrition": log.nutrition
-        })
-    return result
+    # nutrition is already scaled to quantity_g when logged; pass quantity=100 so ratio=1
+    return [{"quantity": 100, "nutrition": log.nutrition} for log in logs]
 
 
 def get_nutrition_for_date(target_date):
@@ -54,6 +52,42 @@ def get_nutrition_for_date(target_date):
     return calculate_nutrition_totals(logs_to_nutrition_list(logs))
 
 
+def get_effective_rda(profile):
+    rda = calculate_personal_rda(
+        profile.weight_kg, profile.height_cm, profile.age,
+        profile.gender, profile.activity_level, profile.goal
+    ) if profile else dict(RDA)
+    # Override with custom targets if set
+    if profile:
+        if profile.custom_calories:
+            rda["calories"] = profile.custom_calories
+        if profile.custom_protein:
+            rda["protein"] = profile.custom_protein
+        if profile.custom_carbs:
+            rda["carbs"] = profile.custom_carbs
+        if profile.custom_fat:
+            rda["fat"] = profile.custom_fat
+    return rda
+
+
+def get_streak():
+    """Count consecutive days with food logged, ending today."""
+    streak = 0
+    cursor = date.today()
+    while True:
+        count = FoodLog.query.filter_by(date=cursor).count()
+        if count == 0:
+            break
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
+
+
+def get_water_today():
+    logs = WaterLog.query.filter_by(date=date.today()).all()
+    return sum(log.amount_ml for log in logs)
+
+
 # ──────────────────────────────────────────────
 #  PAGES
 # ──────────────────────────────────────────────
@@ -61,23 +95,28 @@ def get_nutrition_for_date(target_date):
 @app.route("/")
 def dashboard():
     profile = get_profile()
+    if profile and not profile.onboarding_complete:
+        return render_template("onboarding.html", profile=profile)
     logs = get_today_logs()
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
-    rda = calculate_personal_rda(
-        profile.weight_kg, profile.height_cm, profile.age,
-        profile.gender, profile.activity_level, profile.goal
-    ) if profile else RDA
+    rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
     cal_pct = min(totals["calories"] / rda["calories"] * 100, 100) if rda["calories"] else 0
     protein_pct = min(totals["protein"] / rda["protein"] * 100, 100) if rda["protein"] else 0
     mind_today = MindfulnessLog.query.filter_by(date=date.today()).first()
     mind_pct = min((mind_today.duration_minutes / 30) * 100, 100) if mind_today else 0
+    water_ml = get_water_today()
+    water_goal = profile.water_goal_ml if profile else 2500
+    water_pct = min(water_ml / water_goal * 100, 100) if water_goal else 0
+    streak = get_streak()
     return render_template("dashboard.html",
         profile=profile, totals=totals, rda=rda, deficiencies=deficiencies,
         logs=logs, cal_pct=round(cal_pct, 1), protein_pct=round(protein_pct, 1),
         mind_pct=round(mind_pct, 1), vitamin_names=VITAMIN_NAMES,
         mineral_names=MINERAL_NAMES, amino_names=AMINO_ACID_NAMES,
-        today=date.today().strftime("%A, %B %d %Y")
+        today=date.today().strftime("%A, %B %d %Y"),
+        water_ml=water_ml, water_goal=water_goal, water_pct=round(water_pct, 1),
+        streak=streak
     )
 
 
@@ -86,10 +125,7 @@ def food_log():
     profile = get_profile()
     logs = get_today_logs()
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
-    rda = calculate_personal_rda(
-        profile.weight_kg, profile.height_cm, profile.age,
-        profile.gender, profile.activity_level, profile.goal
-    ) if profile else RDA
+    rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
     return render_template("food_log.html",
         profile=profile, logs=logs, totals=totals, rda=rda,
@@ -126,6 +162,30 @@ def mindfulness_page():
 def profile_page():
     profile = get_profile()
     return render_template("profile.html", profile=profile)
+
+
+@app.route("/progress")
+def progress_page():
+    profile = get_profile()
+    return render_template("progress.html", profile=profile)
+
+
+@app.route("/planner")
+def planner_page():
+    profile = get_profile()
+    return render_template("planner.html", profile=profile)
+
+
+@app.route("/grocery")
+def grocery_page():
+    profile = get_profile()
+    return render_template("grocery.html", profile=profile)
+
+
+@app.route("/onboarding")
+def onboarding_page():
+    profile = get_profile()
+    return render_template("onboarding.html", profile=profile)
 
 
 # ──────────────────────────────────────────────
@@ -181,6 +241,44 @@ def search_food():
             pass
 
     return jsonify(results[:10])
+
+
+@app.route("/api/food/barcode/<barcode>")
+def food_barcode(barcode):
+    """Look up food by barcode using Open Food Facts (free, no key needed)."""
+    try:
+        resp = httpx.get(
+            f"https://world.openfoodfacts.org/api/v0/product/{barcode}.json",
+            timeout=6,
+            headers={"User-Agent": "ChefBuilder/1.0"}
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("status") == 1:
+                p = data["product"]
+                n = p.get("nutriments", {})
+                name = p.get("product_name") or p.get("generic_name") or "Unknown product"
+                return jsonify({
+                    "found": True,
+                    "name": name,
+                    "brand": p.get("brands", ""),
+                    "serving_size": 100,
+                    "serving_unit": "g",
+                    "nutrition": {
+                        "calories": n.get("energy-kcal_100g", n.get("energy_100g", 0) / 4.184),
+                        "protein": n.get("proteins_100g", 0),
+                        "carbs": n.get("carbohydrates_100g", 0),
+                        "sugar": n.get("sugars_100g", 0),
+                        "fiber": n.get("fiber_100g", 0),
+                        "fat": n.get("fat_100g", 0),
+                        "saturated_fat": n.get("saturated-fat_100g", 0),
+                        "sodium": n.get("sodium_100g", 0) * 1000,
+                        "vitamins": {}, "minerals": {}, "amino_acids": {}
+                    }
+                })
+    except Exception as e:
+        return jsonify({"found": False, "error": str(e)}), 500
+    return jsonify({"found": False})
 
 
 @app.route("/api/food/detail")
@@ -291,10 +389,7 @@ def nutrition_today():
     profile = get_profile()
     logs = get_today_logs()
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
-    rda = calculate_personal_rda(
-        profile.weight_kg, profile.height_cm, profile.age,
-        profile.gender, profile.activity_level, profile.goal
-    ) if profile else RDA
+    rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
     return jsonify({"totals": totals, "rda": rda, "deficiencies": deficiencies})
 
@@ -310,16 +405,13 @@ def calendar_data():
         end = date(year, month + 1, 1) - timedelta(days=1)
 
     profile = get_profile()
-    rda = calculate_personal_rda(
-        profile.weight_kg, profile.height_cm, profile.age,
-        profile.gender, profile.activity_level, profile.goal
-    ) if profile else RDA
+    rda = get_effective_rda(profile)
 
     logs_by_date = defaultdict(list)
     all_logs = FoodLog.query.filter(FoodLog.date >= start, FoodLog.date <= end).all()
     for log in all_logs:
         logs_by_date[str(log.date)].append({
-            "quantity": log.quantity_g, "nutrition": log.nutrition
+            "quantity": 100, "nutrition": log.nutrition
         })
 
     mind_by_date = {}
@@ -349,6 +441,133 @@ def calendar_data():
     return jsonify(result)
 
 
+@app.route("/api/progress/history")
+def progress_history():
+    """Return 30-day history for charts."""
+    days = int(request.args.get("days", 30))
+    today = date.today()
+    start = today - timedelta(days=days - 1)
+
+    profile = get_profile()
+    rda = get_effective_rda(profile)
+
+    logs_by_date = defaultdict(list)
+    all_logs = FoodLog.query.filter(FoodLog.date >= start, FoodLog.date <= today).all()
+    for log in all_logs:
+        logs_by_date[str(log.date)].append({
+            "quantity": 100, "nutrition": log.nutrition
+        })
+
+    water_by_date = defaultdict(int)
+    water_logs = WaterLog.query.filter(WaterLog.date >= start, WaterLog.date <= today).all()
+    for wl in water_logs:
+        water_by_date[str(wl.date)] += wl.amount_ml
+
+    weight_logs = WeightLog.query.filter(
+        WeightLog.date >= start, WeightLog.date <= today
+    ).order_by(WeightLog.date).all()
+    weight_by_date = {str(wl.date): wl.weight_kg for wl in weight_logs}
+
+    result = []
+    cursor = start
+    while cursor <= today:
+        d = str(cursor)
+        food_data = logs_by_date.get(d, [])
+        totals = calculate_nutrition_totals(food_data) if food_data else {}
+        result.append({
+            "date": d,
+            "calories": round(totals.get("calories", 0)),
+            "protein": round(totals.get("protein", 0), 1),
+            "carbs": round(totals.get("carbs", 0), 1),
+            "fat": round(totals.get("fat", 0), 1),
+            "fiber": round(totals.get("fiber", 0), 1),
+            "water_ml": water_by_date.get(d, 0),
+            "weight_kg": weight_by_date.get(d),
+            "has_data": bool(food_data)
+        })
+        cursor += timedelta(days=1)
+
+    return jsonify({"history": result, "rda": rda})
+
+
+@app.route("/api/streak")
+def streak_api():
+    return jsonify({"streak": get_streak()})
+
+
+# ──────────────────────────────────────────────
+#  API — WATER
+# ──────────────────────────────────────────────
+
+@app.route("/api/water/today")
+def water_today():
+    profile = get_profile()
+    total = get_water_today()
+    goal = profile.water_goal_ml if profile else 2500
+    logs = WaterLog.query.filter_by(date=date.today()).order_by(WaterLog.created_at).all()
+    return jsonify({
+        "total_ml": total,
+        "goal_ml": goal,
+        "pct": round(min(total / goal * 100, 100), 1) if goal else 0,
+        "logs": [{"id": l.id, "amount_ml": l.amount_ml,
+                  "created_at": l.created_at.strftime("%H:%M")} for l in logs]
+    })
+
+
+@app.route("/api/water/log", methods=["POST"])
+def log_water():
+    data = request.json
+    amount = int(data.get("amount_ml", 250))
+    log = WaterLog(date=date.today(), amount_ml=amount)
+    db.session.add(log)
+    db.session.commit()
+    total = get_water_today()
+    profile = get_profile()
+    goal = profile.water_goal_ml if profile else 2500
+    return jsonify({"success": True, "id": log.id, "total_ml": total,
+                    "pct": round(min(total / goal * 100, 100), 1)})
+
+
+@app.route("/api/water/log/<int:log_id>", methods=["DELETE"])
+def delete_water_log(log_id):
+    log = WaterLog.query.get_or_404(log_id)
+    db.session.delete(log)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+# ──────────────────────────────────────────────
+#  API — WEIGHT
+# ──────────────────────────────────────────────
+
+@app.route("/api/weight/log", methods=["POST"])
+def log_weight():
+    data = request.json
+    existing = WeightLog.query.filter_by(date=date.today()).first()
+    if existing:
+        existing.weight_kg = float(data["weight_kg"])
+        existing.notes = data.get("notes", "")
+    else:
+        db.session.add(WeightLog(
+            date=date.fromisoformat(data.get("date", str(date.today()))),
+            weight_kg=float(data["weight_kg"]),
+            notes=data.get("notes", "")
+        ))
+    db.session.commit()
+    # Update profile weight too
+    profile = get_profile()
+    if profile:
+        profile.weight_kg = float(data["weight_kg"])
+        db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route("/api/weight/history")
+def weight_history():
+    logs = WeightLog.query.order_by(WeightLog.date.desc()).limit(30).all()
+    return jsonify([{"date": str(l.date), "weight_kg": l.weight_kg} for l in reversed(logs)])
+
+
 # ──────────────────────────────────────────────
 #  API — AI FEATURES
 # ──────────────────────────────────────────────
@@ -370,10 +589,7 @@ def chat_api():
     profile = get_profile()
     logs = get_today_logs()
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
-    rda = calculate_personal_rda(
-        profile.weight_kg, profile.height_cm, profile.age,
-        profile.gender, profile.activity_level, profile.goal
-    ) if profile else RDA
+    rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
 
     try:
@@ -400,10 +616,7 @@ def suggest_recipes():
     profile = get_profile()
     logs = get_today_logs()
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
-    rda = calculate_personal_rda(
-        profile.weight_kg, profile.height_cm, profile.age,
-        profile.gender, profile.activity_level, profile.goal
-    ) if profile else RDA
+    rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
     try:
         raw = ai_service.generate_recipe_suggestions(
@@ -428,10 +641,7 @@ def daily_insight():
     profile = get_profile()
     logs = get_today_logs()
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
-    rda = calculate_personal_rda(
-        profile.weight_kg, profile.height_cm, profile.age,
-        profile.gender, profile.activity_level, profile.goal
-    ) if profile else RDA
+    rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
     try:
         insight = ai_service.get_daily_insight(
@@ -440,7 +650,7 @@ def daily_insight():
             profile={"goal": profile.goal if profile else "maintain"}
         )
         return jsonify({"insight": insight})
-    except Exception as e:
+    except Exception:
         return jsonify({"insight": "Log your meals today to get personalized AI insights!"})
 
 
@@ -451,6 +661,126 @@ def analyze_meal():
         result = ai_service.analyze_meal_and_suggest(
             data.get("food_name", ""), data.get("ingredients", ""))
         return jsonify({"analysis": result})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/meal/image", methods=["POST"])
+def analyze_meal_image():
+    """Analyze a meal photo using Claude Vision."""
+    if "image" not in request.files:
+        return jsonify({"error": "No image provided"}), 400
+    file = request.files["image"]
+    if not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    mime = file.mimetype or "image/jpeg"
+    if mime not in allowed:
+        return jsonify({"error": "Unsupported image type"}), 400
+
+    image_data = base64.standard_b64encode(file.read()).decode("utf-8")
+    profile = get_profile()
+    try:
+        result = ai_service.analyze_meal_image(
+            image_data=image_data,
+            mime_type=mime,
+            profile={"goal": profile.goal if profile else "maintain",
+                     "dietary_preference": profile.dietary_preference if profile else "omnivore"}
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/weekly-report")
+def weekly_report():
+    today = date.today()
+    start = today - timedelta(days=6)
+
+    profile = get_profile()
+    week_data = []
+    cursor = start
+    while cursor <= today:
+        logs = FoodLog.query.filter_by(date=cursor).all()
+        totals = calculate_nutrition_totals(logs_to_nutrition_list(logs)) if logs else {}
+        water = sum(w.amount_ml for w in WaterLog.query.filter_by(date=cursor).all())
+        week_data.append({
+            "date": cursor.strftime("%A %b %d"),
+            "calories": totals.get("calories", 0),
+            "protein": totals.get("protein", 0),
+            "water_ml": water
+        })
+        cursor += timedelta(days=1)
+
+    try:
+        report = ai_service.generate_weekly_report(
+            week_data=week_data,
+            profile={"name": profile.name if profile else "User",
+                     "goal": profile.goal if profile else "maintain",
+                     "dietary_preference": profile.dietary_preference if profile else "omnivore"}
+        )
+        return jsonify({"report": report})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/grocery/generate", methods=["POST"])
+def generate_grocery():
+    data = request.json or {}
+    preferences = data.get("preferences", "")
+    profile = get_profile()
+
+    today = date.today()
+    start = today - timedelta(days=6)
+    all_deficiencies = {"vitamins": {}, "minerals": {}}
+    cursor = start
+    while cursor <= today:
+        logs = FoodLog.query.filter_by(date=cursor).all()
+        if logs:
+            totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
+            rda = get_effective_rda(profile)
+            d = calculate_deficiencies(totals, rda)
+            for k, v in d.get("vitamins", {}).items():
+                all_deficiencies["vitamins"][k] = all_deficiencies["vitamins"].get(k, 0) + v
+            for k, v in d.get("minerals", {}).items():
+                all_deficiencies["minerals"][k] = all_deficiencies["minerals"].get(k, 0) + v
+        cursor += timedelta(days=1)
+
+    try:
+        result = ai_service.generate_grocery_list(
+            profile={"goal": profile.goal if profile else "maintain",
+                     "dietary_preference": profile.dietary_preference if profile else "omnivore",
+                     "allergies": profile.allergies if profile else ""},
+            week_deficiencies=all_deficiencies,
+            preferences=preferences
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/meal-plan/generate", methods=["POST"])
+def generate_meal_plan():
+    data = request.json or {}
+    days = int(data.get("days", 7))
+    preferences = data.get("preferences", "")
+    profile = get_profile()
+    logs = get_today_logs()
+    totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
+    rda = get_effective_rda(profile)
+    deficiencies = calculate_deficiencies(totals, rda)
+    try:
+        result = ai_service.generate_meal_plan(
+            profile={"goal": profile.goal if profile else "maintain",
+                     "dietary_preference": profile.dietary_preference if profile else "omnivore",
+                     "allergies": profile.allergies if profile else ""},
+            today_nutrition=totals,
+            deficiencies=deficiencies,
+            days=days,
+            preferences=preferences
+        )
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -495,20 +825,61 @@ def profile_api():
             "name": profile.name, "age": profile.age, "gender": profile.gender,
             "weight_kg": profile.weight_kg, "height_cm": profile.height_cm,
             "activity_level": profile.activity_level, "goal": profile.goal,
-            "dietary_preference": profile.dietary_preference, "allergies": profile.allergies
+            "dietary_preference": profile.dietary_preference, "allergies": profile.allergies,
+            "custom_calories": profile.custom_calories, "custom_protein": profile.custom_protein,
+            "custom_carbs": profile.custom_carbs, "custom_fat": profile.custom_fat,
+            "water_goal_ml": profile.water_goal_ml
         })
     data = request.json
     for field in ["name", "gender", "activity_level", "goal", "dietary_preference", "allergies"]:
         if field in data:
             setattr(profile, field, data[field])
-    for field in ["age"]:
+    for field in ["age", "custom_calories", "custom_protein", "custom_carbs",
+                  "custom_fat", "water_goal_ml"]:
         if field in data:
             setattr(profile, field, int(data[field]))
     for field in ["weight_kg", "height_cm"]:
         if field in data:
             setattr(profile, field, float(data[field]))
+    if "onboarding_complete" in data:
+        profile.onboarding_complete = bool(data["onboarding_complete"])
     db.session.commit()
     return jsonify({"success": True})
+
+
+# ──────────────────────────────────────────────
+#  API — EXPORT
+# ──────────────────────────────────────────────
+
+@app.route("/api/export/csv")
+def export_csv():
+    days = int(request.args.get("days", 30))
+    today = date.today()
+    start = today - timedelta(days=days - 1)
+    logs = FoodLog.query.filter(
+        FoodLog.date >= start, FoodLog.date <= today
+    ).order_by(FoodLog.date, FoodLog.created_at).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Meal Type", "Food", "Quantity (g)",
+                     "Calories", "Protein (g)", "Carbs (g)", "Fat (g)",
+                     "Fiber (g)", "Sugar (g)"])
+    for log in logs:
+        n = log.nutrition
+        writer.writerow([
+            str(log.date), log.meal_type, log.food_name, log.quantity_g,
+            round(n.get("calories", 0)), round(n.get("protein", 0), 1),
+            round(n.get("carbs", 0), 1), round(n.get("fat", 0), 1),
+            round(n.get("fiber", 0), 1), round(n.get("sugar", 0), 1)
+        ])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=chefbuilder_food_log_{today}.csv"}
+    )
 
 
 # ──────────────────────────────────────────────

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Welcome — Chef Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}"/>
+</head>
+<body>
+<div class="ambient-bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<div class="onboarding-container">
+  <!-- Progress bar -->
+  <div class="onboarding-progress">
+    <div class="onboarding-progress-bar" id="progressBar" style="width:20%"></div>
+  </div>
+
+  <!-- Steps -->
+  <div class="onboarding-card">
+
+    <!-- Step 1: Welcome -->
+    <div class="ob-step active" id="step1">
+      <div class="ob-icon">🍃</div>
+      <h1 class="ob-title">Welcome to <span class="accent">Chef Builder</span></h1>
+      <p class="ob-subtitle">Your AI-powered wellness companion. Let's set up your profile so we can personalize everything for you.</p>
+      <div class="ob-features">
+        <div class="ob-feature"><i data-lucide="utensils"></i><span>Smart food tracking</span></div>
+        <div class="ob-feature"><i data-lucide="sparkles"></i><span>AI nutrition coaching</span></div>
+        <div class="ob-feature"><i data-lucide="chef-hat"></i><span>Personalized recipes</span></div>
+        <div class="ob-feature"><i data-lucide="trending-up"></i><span>Progress tracking</span></div>
+      </div>
+      <button class="btn btn-primary btn-lg" onclick="nextStep()">Get Started <i data-lucide="arrow-right"></i></button>
+    </div>
+
+    <!-- Step 2: Basic Info -->
+    <div class="ob-step" id="step2">
+      <div class="ob-icon">👤</div>
+      <h2 class="ob-title">Tell us about yourself</h2>
+      <p class="ob-subtitle">Basic info helps us calculate your personalized nutrition targets.</p>
+      <div class="ob-form">
+        <div class="form-group">
+          <label class="form-label">Your Name</label>
+          <input type="text" id="ob_name" class="input" placeholder="What should we call you?" value="{{ profile.name if profile.name != 'User' else '' }}">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Age</label>
+            <input type="number" id="ob_age" class="input" placeholder="e.g. 28" min="10" max="100" value="{{ profile.age if profile.age != 30 else '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Gender</label>
+            <select id="ob_gender" class="input">
+              <option value="male" {% if profile.gender == 'male' %}selected{% endif %}>Male</option>
+              <option value="female" {% if profile.gender == 'female' %}selected{% endif %}>Female</option>
+              <option value="other" {% if profile.gender == 'other' %}selected{% endif %}>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Weight (kg)</label>
+            <input type="number" id="ob_weight" class="input" placeholder="e.g. 72" step="0.1" value="{{ profile.weight_kg if profile.weight_kg != 70.0 else '' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Height (cm)</label>
+            <input type="number" id="ob_height" class="input" placeholder="e.g. 175" value="{{ profile.height_cm if profile.height_cm != 170.0 else '' }}">
+          </div>
+        </div>
+      </div>
+      <div class="ob-nav">
+        <button class="btn btn-ghost" onclick="prevStep()">Back</button>
+        <button class="btn btn-primary" onclick="nextStep()">Continue <i data-lucide="arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 3: Goals & Diet -->
+    <div class="ob-step" id="step3">
+      <div class="ob-icon">🎯</div>
+      <h2 class="ob-title">Your goals & diet</h2>
+      <p class="ob-subtitle">We'll customize your nutrition targets and recipe suggestions.</p>
+      <div class="ob-form">
+        <div class="form-group">
+          <label class="form-label">Primary Goal</label>
+          <div class="ob-options" id="goalOptions">
+            <button class="ob-option {% if profile.goal == 'lose' %}selected{% endif %}" onclick="selectOb('goal','lose',this)">
+              <span>🏃</span><strong>Lose Weight</strong><small>Calorie deficit</small>
+            </button>
+            <button class="ob-option {% if profile.goal == 'maintain' or not profile.goal %}selected{% endif %}" onclick="selectOb('goal','maintain',this)">
+              <span>⚖️</span><strong>Maintain</strong><small>Stay at current weight</small>
+            </button>
+            <button class="ob-option {% if profile.goal == 'gain' %}selected{% endif %}" onclick="selectOb('goal','gain',this)">
+              <span>💪</span><strong>Build Muscle</strong><small>Calorie surplus</small>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Activity Level</label>
+          <select id="ob_activity" class="input">
+            <option value="sedentary" {% if profile.activity_level == 'sedentary' %}selected{% endif %}>Sedentary (desk job, no exercise)</option>
+            <option value="light" {% if profile.activity_level == 'light' %}selected{% endif %}>Light (1-3 days/week)</option>
+            <option value="moderate" {% if profile.activity_level == 'moderate' %}selected{% endif %}>Moderate (3-5 days/week)</option>
+            <option value="active" {% if profile.activity_level == 'active' %}selected{% endif %}>Active (6-7 days/week)</option>
+            <option value="very_active" {% if profile.activity_level == 'very_active' %}selected{% endif %}>Very Active (athlete/physical job)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dietary Preference</label>
+          <div class="ob-options" id="dietOptions">
+            <button class="ob-option {% if profile.dietary_preference == 'omnivore' or not profile.dietary_preference %}selected{% endif %}" onclick="selectOb('diet','omnivore',this)">
+              <span>🥩</span><strong>Omnivore</strong>
+            </button>
+            <button class="ob-option {% if profile.dietary_preference == 'vegetarian' %}selected{% endif %}" onclick="selectOb('diet','vegetarian',this)">
+              <span>🥗</span><strong>Vegetarian</strong>
+            </button>
+            <button class="ob-option {% if profile.dietary_preference == 'vegan' %}selected{% endif %}" onclick="selectOb('diet','vegan',this)">
+              <span>🌱</span><strong>Vegan</strong>
+            </button>
+            <button class="ob-option {% if profile.dietary_preference == 'keto' %}selected{% endif %}" onclick="selectOb('diet','keto',this)">
+              <span>🥑</span><strong>Keto</strong>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Allergies / Foods to Avoid <span class="text-muted">(optional)</span></label>
+          <input type="text" id="ob_allergies" class="input" placeholder="e.g. nuts, dairy, gluten" value="{{ profile.allergies }}">
+        </div>
+      </div>
+      <div class="ob-nav">
+        <button class="btn btn-ghost" onclick="prevStep()">Back</button>
+        <button class="btn btn-primary" onclick="nextStep()">Continue <i data-lucide="arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 4: Water Goal -->
+    <div class="ob-step" id="step4">
+      <div class="ob-icon">💧</div>
+      <h2 class="ob-title">Hydration goal</h2>
+      <p class="ob-subtitle">Staying hydrated is essential. Set your daily water intake goal.</p>
+      <div class="ob-form">
+        <div class="form-group">
+          <label class="form-label">Daily Water Goal</label>
+          <div class="ob-options">
+            <button class="ob-option" onclick="setWater(1500,this)"><span>💧</span><strong>1.5L</strong><small>Light</small></button>
+            <button class="ob-option selected" onclick="setWater(2500,this)"><span>💧</span><strong>2.5L</strong><small>Standard</small></button>
+            <button class="ob-option" onclick="setWater(3000,this)"><span>💧</span><strong>3L</strong><small>Active</small></button>
+            <button class="ob-option" onclick="setWater(4000,this)"><span>💧</span><strong>4L</strong><small>Athlete</small></button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Or enter custom amount (ml)</label>
+          <input type="number" id="ob_water" class="input" value="2500" min="500" max="6000" step="100">
+        </div>
+      </div>
+      <div class="ob-nav">
+        <button class="btn btn-ghost" onclick="prevStep()">Back</button>
+        <button class="btn btn-primary" onclick="nextStep()">Continue <i data-lucide="arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- Step 5: All Done -->
+    <div class="ob-step" id="step5">
+      <div class="ob-icon" style="font-size:4rem">🎉</div>
+      <h2 class="ob-title">You're all set!</h2>
+      <p class="ob-subtitle">Your personalized wellness profile is ready. Start by logging your first meal or chatting with your AI coach.</p>
+      <div class="ob-features">
+        <div class="ob-feature"><i data-lucide="check-circle" style="color:var(--accent-green)"></i><span>Personalized nutrition targets calculated</span></div>
+        <div class="ob-feature"><i data-lucide="check-circle" style="color:var(--accent-green)"></i><span>AI coach ready to help</span></div>
+        <div class="ob-feature"><i data-lucide="check-circle" style="color:var(--accent-green)"></i><span>Hydration goal set</span></div>
+      </div>
+      <button class="btn btn-primary btn-lg" onclick="finishOnboarding()">
+        Go to Dashboard <i data-lucide="arrow-right"></i>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+lucide.createIcons();
+let currentStep = 1;
+const totalSteps = 5;
+let obData = {
+  goal: '{{ profile.goal }}' || 'maintain',
+  diet: '{{ profile.dietary_preference }}' || 'omnivore',
+  water: {{ profile.water_goal_ml }}
+};
+
+function showStep(n) {
+  document.querySelectorAll('.ob-step').forEach(el => el.classList.remove('active'));
+  document.getElementById(`step${n}`).classList.add('active');
+  document.getElementById('progressBar').style.width = `${(n / totalSteps) * 100}%`;
+  currentStep = n;
+  lucide.createIcons();
+}
+
+function nextStep() {
+  if (currentStep === 2) {
+    const name = document.getElementById('ob_name').value.trim();
+    if (!name) { showToast('Please enter your name', 'error'); return; }
+  }
+  if (currentStep < totalSteps) showStep(currentStep + 1);
+}
+
+function prevStep() {
+  if (currentStep > 1) showStep(currentStep - 1);
+}
+
+function selectOb(type, value, btn) {
+  obData[type] = value;
+  const parent = btn.parentElement;
+  parent.querySelectorAll('.ob-option').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function setWater(ml, btn) {
+  obData.water = ml;
+  document.getElementById('ob_water').value = ml;
+  btn.closest('.ob-options').querySelectorAll('.ob-option').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+document.getElementById('ob_water').addEventListener('input', e => {
+  obData.water = parseInt(e.target.value) || 2500;
+});
+
+async function finishOnboarding() {
+  const payload = {
+    name: document.getElementById('ob_name')?.value.trim() || 'User',
+    age: parseInt(document.getElementById('ob_age')?.value) || 30,
+    gender: document.getElementById('ob_gender')?.value || 'male',
+    weight_kg: parseFloat(document.getElementById('ob_weight')?.value) || 70,
+    height_cm: parseFloat(document.getElementById('ob_height')?.value) || 170,
+    goal: obData.goal || 'maintain',
+    activity_level: document.getElementById('ob_activity')?.value || 'moderate',
+    dietary_preference: obData.diet || 'omnivore',
+    allergies: document.getElementById('ob_allergies')?.value || '',
+    water_goal_ml: parseInt(document.getElementById('ob_water')?.value) || 2500,
+    onboarding_complete: true
+  };
+
+  try {
+    const r = await fetch('/api/profile', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (r.ok) {
+      window.location.href = '/';
+    } else {
+      showToast('Error saving profile. Please try again.', 'error');
+    }
+  } catch(e) {
+    showToast('Error saving profile.', 'error');
+  }
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>

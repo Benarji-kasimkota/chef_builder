@@ -6,9 +6,16 @@
     <p class="page-subtitle">{{ today }}</p>
     <h1 class="page-title">Good {% if now.hour < 12 %}Morning{% elif now.hour < 17 %}Afternoon{% else %}Evening{% endif %}, <span class="accent">{{ profile.name }}</span> 👋</h1>
   </div>
-  <a href="/log" class="btn btn-primary">
-    <i data-lucide="plus"></i> Log Food
-  </a>
+  <div style="display:flex;gap:0.5rem;align-items:center">
+    {% if streak > 0 %}
+    <div class="streak-badge" title="{{ streak }}-day streak!">
+      🔥 {{ streak }}d streak
+    </div>
+    {% endif %}
+    <a href="/log" class="btn btn-primary">
+      <i data-lucide="plus"></i> Log Food
+    </a>
+  </div>
 </div>
 
 <!-- Activity Rings + Today Stats -->
@@ -41,6 +48,7 @@
         <div class="legend-item"><span class="legend-dot cal"></span><div><strong>{{ totals.calories|round|int }} kcal</strong><small>Calories</small></div></div>
         <div class="legend-item"><span class="legend-dot prot"></span><div><strong>{{ totals.protein|round(1) }}g</strong><small>Protein</small></div></div>
         <div class="legend-item"><span class="legend-dot mind"></span><div><strong>{{ mind_pct|round|int }}%</strong><small>Mindfulness</small></div></div>
+        <div class="legend-item"><span class="legend-dot water"></span><div><strong>{{ (water_ml/1000)|round(1) }}L</strong><small>Water</small></div></div>
       </div>
     </div>
   </div>
@@ -89,6 +97,24 @@
       <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ [totals.fiber/rda.fiber*100, 100]|min|round }}%;background:var(--accent-green)"></div></div>
       <div class="stat-target">/ {{ rda.fiber }}g</div>
     </div>
+  </div>
+</div>
+
+<!-- Water Tracker -->
+<div class="card water-tracker-card">
+  <div class="water-header">
+    <h3 class="card-title"><i data-lucide="droplets"></i> Hydration</h3>
+    <span class="water-stat"><strong id="waterTotal">{{ water_ml }}</strong> / {{ water_goal }} ml</span>
+  </div>
+  <div class="water-bar-wrap">
+    <div class="water-bar-fill" id="waterBarFill" style="width:{{ water_pct }}%"></div>
+  </div>
+  <div class="water-buttons">
+    <button class="water-btn" onclick="logWater(150)">☕ 150ml</button>
+    <button class="water-btn" onclick="logWater(250)">🥛 250ml</button>
+    <button class="water-btn water-btn-primary" onclick="logWater(500)">💧 500ml</button>
+    <button class="water-btn" onclick="logWater(750)">🍶 750ml</button>
+    <button class="water-btn" onclick="logWater(1000)">🫗 1L</button>
   </div>
 </div>
 
@@ -250,6 +276,20 @@ async function loadCalendar() {
     grid.innerHTML = html;
   } catch(e) {
     grid.innerHTML = '<p class="text-muted">Could not load calendar</p>';
+  }
+}
+
+async function logWater(ml) {
+  const r = await fetch('/api/water/log', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({amount_ml: ml})
+  });
+  const d = await r.json();
+  if (d.success) {
+    document.getElementById('waterTotal').textContent = d.total_ml;
+    document.getElementById('waterBarFill').style.width = d.pct + '%';
+    showToast(`+${ml}ml water logged!`);
   }
 }
 

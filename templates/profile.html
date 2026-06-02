@@ -96,6 +96,54 @@
   </div>
 </div>
 
+<!-- Water + Custom Targets -->
+<div class="two-col-grid">
+  <div class="card">
+    <h3 class="card-title"><i data-lucide="droplets"></i> Hydration Goal</h3>
+    <div class="profile-form">
+      <div class="form-group">
+        <label>Daily Water Goal (ml)</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <button class="water-btn" onclick="setWaterGoal(1500,this)">💧 1.5L</button>
+          <button class="water-btn" onclick="setWaterGoal(2000,this)">💧 2L</button>
+          <button class="water-btn" onclick="setWaterGoal(2500,this)">💧 2.5L</button>
+          <button class="water-btn" onclick="setWaterGoal(3000,this)">💧 3L</button>
+          <button class="water-btn" onclick="setWaterGoal(4000,this)">💧 4L</button>
+        </div>
+        <input type="number" id="pWaterGoal" class="input" value="{{ profile.water_goal_ml }}" min="500" max="6000" step="100" placeholder="e.g. 2500"/>
+        <small style="color:var(--text-muted);font-size:11px">Current: <strong>{{ (profile.water_goal_ml / 1000)|round(1) }}L/day</strong></small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 class="card-title"><i data-lucide="sliders"></i> Custom Macro Targets</h3>
+    <p class="text-muted" style="font-size:12px;margin-bottom:12px">Leave 0 to use auto-calculated targets from your profile.</p>
+    <div class="profile-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Calories (kcal)</label>
+          <input type="number" id="pCalTarget" class="input" value="{{ profile.custom_calories }}" min="0" max="10000" placeholder="0 = auto"/>
+        </div>
+        <div class="form-group">
+          <label>Protein (g)</label>
+          <input type="number" id="pProtTarget" class="input" value="{{ profile.custom_protein }}" min="0" max="500" placeholder="0 = auto"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Carbs (g)</label>
+          <input type="number" id="pCarbTarget" class="input" value="{{ profile.custom_carbs }}" min="0" max="1000" placeholder="0 = auto"/>
+        </div>
+        <div class="form-group">
+          <label>Fat (g)</label>
+          <input type="number" id="pFatTarget" class="input" value="{{ profile.custom_fat }}" min="0" max="500" placeholder="0 = auto"/>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- BMR/TDEE Card -->
 <div class="card bmr-card" id="bmrCard">
   <h3 class="card-title"><i data-lucide="flame"></i> Your Energy Needs</h3>
@@ -133,6 +181,10 @@ function calcBMR() {
   document.getElementById('proteinVal').textContent = Math.round(protein);
 }
 
+function setWaterGoal(ml, btn) {
+  document.getElementById('pWaterGoal').value = ml;
+}
+
 async function saveProfile() {
   const data = {
     name: document.getElementById('pName').value,
@@ -143,7 +195,12 @@ async function saveProfile() {
     activity_level: document.getElementById('pActivity').value,
     goal: document.querySelector('input[name="goal"]:checked')?.value || 'maintain',
     dietary_preference: document.getElementById('pDiet').value,
-    allergies: document.getElementById('pAllergies').value
+    allergies: document.getElementById('pAllergies').value,
+    water_goal_ml: parseInt(document.getElementById('pWaterGoal').value) || 2500,
+    custom_calories: parseInt(document.getElementById('pCalTarget').value) || 0,
+    custom_protein: parseInt(document.getElementById('pProtTarget').value) || 0,
+    custom_carbs: parseInt(document.getElementById('pCarbTarget').value) || 0,
+    custom_fat: parseInt(document.getElementById('pFatTarget').value) || 0
   };
   try {
     const r = await fetch('/api/profile', {

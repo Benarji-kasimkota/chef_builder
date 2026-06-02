@@ -10,7 +10,18 @@
 
 <!-- Search + Add -->
 <div class="card add-food-card">
-  <h3 class="card-title"><i data-lucide="search"></i> Search & Add Food</h3>
+  <div class="card-header">
+    <h3 class="card-title"><i data-lucide="search"></i> Search & Add Food</h3>
+    <div style="display:flex;gap:0.5rem">
+      <button class="btn btn-sm btn-ghost" onclick="openBarcodeModal()" title="Scan barcode">
+        <i data-lucide="scan-barcode"></i> Barcode
+      </button>
+      <button class="btn btn-sm btn-ghost" onclick="document.getElementById('imageUpload').click()" title="Analyze meal photo">
+        <i data-lucide="camera"></i> Photo
+      </button>
+      <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="analyzeImage(this)">
+    </div>
+  </div>
   <div class="food-search-form">
     <div class="search-field">
       <input type="text" id="foodSearch" class="input" placeholder="Search food (e.g. chicken breast, salmon, oats...)" autocomplete="off"/>
@@ -39,17 +50,48 @@
   </div>
 </div>
 
+<!-- Barcode Modal -->
+<div class="modal-overlay" id="barcodeModal" style="display:none" onclick="if(event.target===this)closeBarcodeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i data-lucide="scan-barcode"></i> Barcode Lookup</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeBarcodeModal()"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted" style="margin-bottom:1rem">Enter the barcode number from the product packaging.</p>
+      <div class="form-group">
+        <label class="form-label">Barcode Number</label>
+        <div style="display:flex;gap:0.5rem">
+          <input type="text" id="barcodeInput" class="input" placeholder="e.g. 0041196898612" inputmode="numeric"
+            onkeydown="if(event.key==='Enter')lookupBarcode()">
+          <button class="btn btn-primary" onclick="lookupBarcode()">Look Up</button>
+        </div>
+      </div>
+      <div id="barcodeResult" style="margin-top:1rem"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Image Analysis Modal -->
+<div class="modal-overlay" id="imageModal" style="display:none" onclick="if(event.target===this)closeImageModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i data-lucide="camera"></i> Meal Photo Analysis</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeImageModal()"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body" id="imageModalBody">
+      <div style="text-align:center;padding:2rem;color:var(--text-muted)">
+        <div style="font-size:3rem">📸</div>
+        <p>Analyzing your meal with AI Vision...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Today's Log -->
 <div class="two-col-grid">
   <div>
     <!-- Meal Groups -->
-    {% set meal_groups = {'breakfast': [], 'lunch': [], 'dinner': [], 'snack': []} %}
-    {% for log in logs %}
-      {% if log.meal_type in meal_groups %}
-        {% if meal_groups[log.meal_type].append(log) %}{% endif %}
-      {% endif %}
-    {% endfor %}
-
     {% for meal, emoji in [('breakfast','🌅'),('lunch','☀️'),('dinner','🌙'),('snack','🍎')] %}
     {% set meal_logs = logs | selectattr('meal_type','equalto',meal) | list %}
     {% if meal_logs %}
@@ -73,8 +115,9 @@
       </div>
       {% endfor %}
       <div class="meal-group-total">
-        {% set meal_cal = meal_logs | map(attribute='nutrition') | map(attribute='calories') | list %}
-        Total: {{ meal_logs | sum(attribute='nutrition') | default(0) }} kcal
+        {% set ns = namespace(cal=0) %}
+        {% for l in meal_logs %}{% set ns.cal = ns.cal + l.nutrition.get('calories', 0) %}{% endfor %}
+        Total: {{ ns.cal | round | int }} kcal
       </div>
     </div>
     {% endif %}
@@ -274,6 +317,152 @@ async function deleteLog(id) {
 document.addEventListener('click', e => {
   if (!e.target.closest('.search-field')) dropdown.classList.remove('open');
 });
+
+// Barcode Scanner
+function openBarcodeModal() {
+  document.getElementById('barcodeModal').style.display = 'flex';
+  document.getElementById('barcodeInput').focus();
+  lucide.createIcons();
+}
+function closeBarcodeModal() {
+  document.getElementById('barcodeModal').style.display = 'none';
+  document.getElementById('barcodeResult').innerHTML = '';
+  document.getElementById('barcodeInput').value = '';
+}
+
+async function lookupBarcode() {
+  const code = document.getElementById('barcodeInput').value.trim();
+  if (!code) { showToast('Enter a barcode number', 'error'); return; }
+  const result = document.getElementById('barcodeResult');
+  result.innerHTML = '<p class="text-muted">Looking up barcode...</p>';
+  try {
+    const r = await fetch(`/api/food/barcode/${encodeURIComponent(code)}`);
+    const d = await r.json();
+    if (d.found) {
+      const n = d.nutrition || {};
+      result.innerHTML = `
+        <div class="barcode-result">
+          <div class="barcode-food-name">${d.name}${d.brand ? ` <span class="text-muted">(${d.brand})</span>` : ''}</div>
+          <div class="preview-macros">
+            <span>🔥 ${Math.round(n.calories||0)} kcal</span>
+            <span>💪 ${(n.protein||0).toFixed(1)}g P</span>
+            <span>🌾 ${(n.carbs||0).toFixed(1)}g C</span>
+            <span>🥑 ${(n.fat||0).toFixed(1)}g F</span>
+          </div>
+          <p class="text-muted" style="font-size:0.8rem;margin-top:0.5rem">Per 100g</p>
+          <button class="btn btn-primary" style="margin-top:0.75rem;width:100%" onclick="useBarcodeFood(${JSON.stringify(d).replace(/"/g,'&quot;')})">
+            Use This Food
+          </button>
+        </div>`;
+    } else {
+      result.innerHTML = '<p class="text-muted">Product not found. Try searching by name instead.</p>';
+    }
+  } catch(e) {
+    result.innerHTML = '<p style="color:var(--accent-red)">Error looking up barcode. Please try again.</p>';
+  }
+}
+
+function useBarcodeFood(foodData) {
+  selectedFood = {
+    name: foodData.name,
+    key: `barcode_${foodData.name}`,
+    serving_size: 100,
+    serving_unit: 'g',
+    nutrition: foodData.nutrition
+  };
+  document.getElementById('foodSearch').value = foodData.name;
+  document.getElementById('quantity').value = 100;
+  document.getElementById('qtyUnit').textContent = 'g';
+  document.getElementById('addFoodBtn').disabled = false;
+  document.getElementById('previewName').textContent = foodData.name;
+  const n = foodData.nutrition;
+  document.getElementById('previewMacros').innerHTML = `
+    <span>🔥 ${Math.round(n.calories||0)} kcal</span>
+    <span>💪 ${(n.protein||0).toFixed(1)}g protein</span>
+    <span>🌾 ${(n.carbs||0).toFixed(1)}g carbs</span>
+    <span>🥑 ${(n.fat||0).toFixed(1)}g fat</span>`;
+  document.getElementById('foodPreview').style.display = 'block';
+  closeBarcodeModal();
+  showToast('Food loaded from barcode!');
+}
+
+// Image Analysis
+function closeImageModal() {
+  document.getElementById('imageModal').style.display = 'none';
+}
+
+async function analyzeImage(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  document.getElementById('imageModal').style.display = 'flex';
+  document.getElementById('imageModalBody').innerHTML = `
+    <div style="text-align:center;padding:2rem;color:var(--text-muted)">
+      <div style="font-size:3rem;margin-bottom:0.5rem">🔍</div>
+      <p>Analyzing your meal with Claude Vision...</p>
+      <p style="font-size:0.85rem;margin-top:0.5rem">This takes a few seconds</p>
+    </div>`;
+  lucide.createIcons();
+
+  const formData = new FormData();
+  formData.append('image', file);
+  try {
+    const r = await fetch('/api/meal/image', {method:'POST', body: formData});
+    const d = await r.json();
+    if (d.error) {
+      document.getElementById('imageModalBody').innerHTML = `<p style="color:var(--accent-red);padding:1rem">${d.error}</p>`;
+      return;
+    }
+    const en = d.estimated_nutrition || {};
+    document.getElementById('imageModalBody').innerHTML = `
+      <div style="padding:0.5rem">
+        <h4 style="margin-bottom:0.5rem">${d.meal_name || 'Meal'}</h4>
+        <p class="text-muted" style="margin-bottom:1rem">${d.description || ''}</p>
+        ${d.identified_foods?.length ? `<p style="font-size:0.85rem;margin-bottom:0.5rem"><strong>Identified:</strong> ${d.identified_foods.join(', ')}</p>` : ''}
+        <p style="font-size:0.85rem;margin-bottom:0.5rem"><strong>Serving:</strong> ${d.serving_estimate || '1 serving'}</p>
+        <div class="preview-macros" style="margin-bottom:1rem">
+          <span>🔥 ~${Math.round(en.calories||0)} kcal</span>
+          <span>💪 ~${Math.round(en.protein||0)}g P</span>
+          <span>🌾 ~${Math.round(en.carbs||0)}g C</span>
+          <span>🥑 ~${Math.round(en.fat||0)}g F</span>
+        </div>
+        ${d.health_notes ? `<p style="font-size:0.85rem;color:var(--accent-green);margin-bottom:0.5rem">${d.health_notes}</p>` : ''}
+        ${d.suggestions ? `<p style="font-size:0.85rem;color:var(--accent-amber)">${d.suggestions}</p>` : ''}
+        <button class="btn btn-primary" style="width:100%;margin-top:1rem"
+          onclick="useImageFood(${JSON.stringify(d).replace(/"/g,'&quot;')})">
+          Log This Meal
+        </button>
+      </div>`;
+  } catch(e) {
+    document.getElementById('imageModalBody').innerHTML = `<p style="color:var(--accent-red);padding:1rem">Failed to analyze image. Please check your API key.</p>`;
+  }
+  input.value = '';
+}
+
+function useImageFood(data) {
+  const en = data.estimated_nutrition || {};
+  selectedFood = {
+    name: data.meal_name || 'Meal from photo',
+    key: 'image_analysis',
+    serving_size: 100,
+    serving_unit: 'g',
+    nutrition: {
+      calories: en.calories || 0, protein: en.protein || 0,
+      carbs: en.carbs || 0, fat: en.fat || 0, fiber: en.fiber || 0,
+      sugar: 0, vitamins: {}, minerals: {}, amino_acids: {}
+    }
+  };
+  document.getElementById('foodSearch').value = data.meal_name || 'Meal from photo';
+  document.getElementById('addFoodBtn').disabled = false;
+  document.getElementById('previewName').textContent = data.meal_name || 'Meal from photo';
+  document.getElementById('previewMacros').innerHTML = `
+    <span>🔥 ~${Math.round(en.calories||0)} kcal</span>
+    <span>💪 ~${Math.round(en.protein||0)}g P</span>
+    <span>🌾 ~${Math.round(en.carbs||0)}g C</span>
+    <span>🥑 ~${Math.round(en.fat||0)}g F</span>`;
+  document.getElementById('foodPreview').style.display = 'block';
+  closeImageModal();
+  showToast('Meal loaded from photo!');
+}
 
 // Macro chart
 const ctx = document.getElementById('macroChart').getContext('2d');

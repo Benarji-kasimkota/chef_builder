@@ -15,6 +15,15 @@ class UserProfile(db.Model):
     goal = db.Column(db.String(20), default="maintain")
     dietary_preference = db.Column(db.String(30), default="omnivore")
     allergies = db.Column(db.Text, default="")
+    # Custom macro targets (0 = use auto-calculated RDA)
+    custom_calories = db.Column(db.Integer, default=0)
+    custom_protein = db.Column(db.Integer, default=0)
+    custom_carbs = db.Column(db.Integer, default=0)
+    custom_fat = db.Column(db.Integer, default=0)
+    # Water goal in ml
+    water_goal_ml = db.Column(db.Integer, default=2500)
+    # Onboarding
+    onboarding_complete = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -57,6 +66,14 @@ class WeightLog(db.Model):
     date = db.Column(db.Date, default=date.today)
     weight_kg = db.Column(db.Float)
     notes = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class WaterLog(db.Model):
+    __tablename__ = "water_log"
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, default=date.today)
+    amount_ml = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 

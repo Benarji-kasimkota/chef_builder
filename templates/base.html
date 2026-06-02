@@ -1,9 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>{% block title %}Chef Builder — AI Wellness{% endblock %}</title>
+<!-- PWA -->
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}"/>
+<meta name="theme-color" content="#0f1117"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}"/>
+<!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
@@ -39,8 +46,17 @@
     <a href="/recipes" class="nav-item {% if request.path == '/recipes' %}active{% endif %}">
       <i data-lucide="chef-hat"></i><span>Recipes</span>
     </a>
+    <a href="/planner" class="nav-item {% if request.path == '/planner' %}active{% endif %}">
+      <i data-lucide="calendar-days"></i><span>Meal Planner</span>
+    </a>
+    <a href="/grocery" class="nav-item {% if request.path == '/grocery' %}active{% endif %}">
+      <i data-lucide="shopping-cart"></i><span>Grocery List</span>
+    </a>
     <a href="/mindfulness" class="nav-item {% if request.path == '/mindfulness' %}active{% endif %}">
       <i data-lucide="brain"></i><span>Mindfulness</span>
+    </a>
+    <a href="/progress" class="nav-item {% if request.path == '/progress' %}active{% endif %}">
+      <i data-lucide="trending-up"></i><span>Progress</span>
     </a>
     <div class="nav-divider"></div>
     <a href="/profile" class="nav-item {% if request.path == '/profile' %}active{% endif %}">
@@ -48,6 +64,12 @@
     </a>
   </div>
   <div class="sidebar-footer">
+    <!-- Dark mode toggle -->
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+      <i data-lucide="moon" id="themeIconDark"></i>
+      <i data-lucide="sun" id="themeIconLight" style="display:none"></i>
+      <span id="themeLabel">Dark Mode</span>
+    </button>
     <div class="ai-badge">
       <i data-lucide="sparkles"></i>
       <span>Powered by Claude AI</span>
@@ -77,11 +99,11 @@
   <a href="/chat" class="mobile-nav-item {% if request.path == '/chat' %}active{% endif %}">
     <i data-lucide="bot"></i><span>AI</span>
   </a>
-  <a href="/recipes" class="mobile-nav-item {% if request.path == '/recipes' %}active{% endif %}">
-    <i data-lucide="chef-hat"></i><span>Recipes</span>
+  <a href="/progress" class="mobile-nav-item {% if request.path == '/progress' %}active{% endif %}">
+    <i data-lucide="trending-up"></i><span>Progress</span>
   </a>
-  <a href="/mindfulness" class="mobile-nav-item {% if request.path == '/mindfulness' %}active{% endif %}">
-    <i data-lucide="brain"></i><span>Mind</span>
+  <a href="/planner" class="mobile-nav-item {% if request.path == '/planner' %}active{% endif %}">
+    <i data-lucide="calendar-days"></i><span>Plan</span>
   </a>
 </nav>
 
@@ -90,6 +112,8 @@
 
 <script>
 lucide.createIcons();
+
+// Nav toggle
 document.getElementById('navToggle')?.addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('navOverlay').classList.toggle('visible');
@@ -98,11 +122,47 @@ document.getElementById('navOverlay')?.addEventListener('click', () => {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('navOverlay').classList.remove('visible');
 });
+
+// Toast
 function showToast(msg, type='success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = `toast toast-${type} show`;
   setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Dark/Light mode
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  const dark = document.getElementById('themeIconDark');
+  const light = document.getElementById('themeIconLight');
+  const label = document.getElementById('themeLabel');
+  if (theme === 'light') {
+    dark.style.display = 'none';
+    light.style.display = 'inline';
+    label.textContent = 'Light Mode';
+  } else {
+    dark.style.display = 'inline';
+    light.style.display = 'none';
+    label.textContent = 'Dark Mode';
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+// Apply saved theme on load
+(function() {
+  const saved = localStorage.getItem('theme') || 'dark';
+  applyTheme(saved);
+})();
+
+// PWA service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/sw.js').catch(() => {});
 }
 </script>
 {% block scripts %}{% endblock %}

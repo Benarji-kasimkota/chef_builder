@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}Progress — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">Your wellness journey</p>
+    <h1 class="page-title">Progress <span class="accent">Charts</span></h1>
+  </div>
+  <div style="display:flex;gap:0.5rem;align-items:center">
+    <select id="daysSelect" class="input" style="width:auto" onchange="loadHistory()">
+      <option value="7">7 days</option>
+      <option value="14">14 days</option>
+      <option value="30" selected>30 days</option>
+      <option value="60">60 days</option>
+      <option value="90">90 days</option>
+    </select>
+    <a href="/api/export/csv" class="btn btn-ghost">
+      <i data-lucide="download"></i> Export CSV
+    </a>
+  </div>
+</div>
+
+<!-- Summary stats -->
+<div class="stats-grid" id="summaryStats" style="margin-bottom:1.5rem">
+  <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-value" id="daysLogged">—</div><div class="stat-label">Days Logged</div></div>
+  <div class="stat-card"><div class="stat-icon">🔥</div><div class="stat-value" id="avgCal">—</div><div class="stat-label">Avg Calories</div></div>
+  <div class="stat-card"><div class="stat-icon">💪</div><div class="stat-value" id="avgProtein">—</div><div class="stat-label">Avg Protein</div></div>
+  <div class="stat-card"><div class="stat-icon">💧</div><div class="stat-value" id="avgWater">—</div><div class="stat-label">Avg Water</div></div>
+</div>
+
+<!-- Calories Chart -->
+<div class="card" style="margin-bottom:1.5rem">
+  <div class="card-header">
+    <h3 class="card-title"><i data-lucide="flame"></i> Calorie Intake</h3>
+    <span class="badge badge-ghost" id="calTarget"></span>
+  </div>
+  <div style="position:relative;height:220px">
+    <canvas id="calChart"></canvas>
+  </div>
+</div>
+
+<!-- Macros Chart -->
+<div class="two-col-grid">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title"><i data-lucide="pie-chart"></i> Macros Over Time</h3>
+    </div>
+    <div style="position:relative;height:220px">
+      <canvas id="macroChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Water Chart -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title"><i data-lucide="droplets"></i> Water Intake</h3>
+    </div>
+    <div style="position:relative;height:220px">
+      <canvas id="waterChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Weight Chart -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-header">
+    <h3 class="card-title"><i data-lucide="scale"></i> Weight Tracking</h3>
+    <button class="btn btn-sm btn-primary" onclick="openWeightModal()">
+      <i data-lucide="plus"></i> Log Weight
+    </button>
+  </div>
+  <div style="position:relative;height:220px">
+    <canvas id="weightChart"></canvas>
+  </div>
+  <p class="text-muted" style="text-align:center;font-size:0.8rem;margin-top:0.5rem" id="weightEmptyMsg" style="display:none">
+    Log your weight daily to see your progress trend
+  </p>
+</div>
+
+<!-- Weekly Report -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-header">
+    <h3 class="card-title"><i data-lucide="sparkles"></i> Weekly AI Report</h3>
+    <button class="btn btn-sm btn-primary" onclick="loadWeeklyReport()" id="reportBtn">
+      <i data-lucide="refresh-cw"></i> Generate Report
+    </button>
+  </div>
+  <div id="weeklyReport" class="prose" style="display:none"></div>
+  <div id="reportLoading" style="display:none;text-align:center;padding:2rem;color:var(--text-muted)">
+    <i data-lucide="loader-2" style="animation:spin 1s linear infinite"></i>
+    <p>Analyzing your week...</p>
+  </div>
+  <p id="reportPlaceholder" class="text-muted" style="text-align:center;padding:1rem">
+    Click "Generate Report" to get your personalized weekly health summary.
+  </p>
+</div>
+
+<!-- Weight Log Modal -->
+<div class="modal-overlay" id="weightModal" style="display:none" onclick="if(event.target===this)closeWeightModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Log Today's Weight</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeWeightModal()"><i data-lucide="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Weight (kg)</label>
+        <input type="number" id="weightInput" class="input" step="0.1" min="20" max="300" placeholder="e.g. 72.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <input type="text" id="weightNotes" class="input" placeholder="e.g. after workout">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeWeightModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWeight()">Save Weight</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let calChart, macroChart, waterChart, weightChart;
+const CHART_DEFAULTS = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { color: 'var(--text-secondary)', font: { family: 'Inter' } } } },
+  scales: {
+    x: { ticks: { color: 'var(--text-muted)', maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+    y: { ticks: { color: 'var(--text-muted)' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+  }
+};
+
+async function loadHistory() {
+  const days = document.getElementById('daysSelect').value;
+  const r = await fetch(`/api/progress/history?days=${days}`);
+  const data = await r.json();
+  const history = data.history;
+  const rda = data.rda;
+
+  const labels = history.map(d => {
+    const dt = new Date(d.date + 'T00:00:00');
+    return `${dt.getMonth()+1}/${dt.getDate()}`;
+  });
+
+  // Summary stats
+  const logged = history.filter(d => d.has_data);
+  document.getElementById('daysLogged').textContent = `${logged.length}/${history.length}`;
+  const avgCal = logged.length ? Math.round(logged.reduce((s,d)=>s+d.calories,0)/logged.length) : 0;
+  const avgProt = logged.length ? (logged.reduce((s,d)=>s+d.protein,0)/logged.length).toFixed(1) : 0;
+  const avgWater = Math.round(history.reduce((s,d)=>s+d.water_ml,0)/history.length);
+  document.getElementById('avgCal').textContent = avgCal ? `${avgCal} kcal` : '—';
+  document.getElementById('avgProtein').textContent = avgProt ? `${avgProt}g` : '—';
+  document.getElementById('avgWater').textContent = avgWater ? `${Math.round(avgWater/100)/10}L` : '—';
+  document.getElementById('calTarget').textContent = `Target: ${rda.calories} kcal`;
+
+  // Calorie chart
+  if (calChart) calChart.destroy();
+  calChart = new Chart(document.getElementById('calChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Calories',
+        data: history.map(d => d.calories),
+        backgroundColor: history.map(d => d.has_data ? 'rgba(255,107,53,0.7)' : 'rgba(255,107,53,0.15)'),
+        borderRadius: 4
+      }, {
+        label: 'Target',
+        data: history.map(() => rda.calories),
+        type: 'line',
+        borderColor: 'rgba(255,107,53,0.4)',
+        borderDash: [5,5],
+        pointRadius: 0,
+        fill: false
+      }]
+    },
+    options: { ...CHART_DEFAULTS }
+  });
+
+  // Macro chart
+  if (macroChart) macroChart.destroy();
+  macroChart = new Chart(document.getElementById('macroChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Protein (g)', data: history.map(d=>d.protein), borderColor: '#6ee7b7', backgroundColor: 'rgba(110,231,183,0.1)', tension: 0.3, fill: true },
+        { label: 'Carbs (g)', data: history.map(d=>d.carbs), borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.1)', tension: 0.3, fill: true },
+        { label: 'Fat (g)', data: history.map(d=>d.fat), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', tension: 0.3, fill: true }
+      ]
+    },
+    options: { ...CHART_DEFAULTS }
+  });
+
+  // Water chart
+  if (waterChart) waterChart.destroy();
+  waterChart = new Chart(document.getElementById('waterChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Water (ml)',
+        data: history.map(d => d.water_ml),
+        backgroundColor: 'rgba(56,189,248,0.6)',
+        borderRadius: 4
+      }]
+    },
+    options: { ...CHART_DEFAULTS }
+  });
+
+  // Weight chart
+  const weightData = history.filter(d => d.weight_kg !== null && d.weight_kg !== undefined);
+  const weightEmpty = document.getElementById('weightEmptyMsg');
+  if (weightChart) weightChart.destroy();
+  if (weightData.length > 0) {
+    weightEmpty.style.display = 'none';
+    const wLabels = history.map(d => { const dt = new Date(d.date+'T00:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}`; });
+    weightChart = new Chart(document.getElementById('weightChart'), {
+      type: 'line',
+      data: {
+        labels: wLabels,
+        datasets: [{
+          label: 'Weight (kg)',
+          data: history.map(d => d.weight_kg || null),
+          borderColor: '#f472b6',
+          backgroundColor: 'rgba(244,114,182,0.1)',
+          tension: 0.3,
+          fill: true,
+          spanGaps: true,
+          pointRadius: 5,
+          pointBackgroundColor: '#f472b6'
+        }]
+      },
+      options: { ...CHART_DEFAULTS }
+    });
+  } else {
+    weightEmpty.style.display = 'block';
+    weightChart = new Chart(document.getElementById('weightChart'), {
+      type: 'line', data: { labels: [], datasets: [] },
+      options: { ...CHART_DEFAULTS }
+    });
+  }
+}
+
+async function loadWeeklyReport() {
+  const btn = document.getElementById('reportBtn');
+  const loading = document.getElementById('reportLoading');
+  const reportDiv = document.getElementById('weeklyReport');
+  const placeholder = document.getElementById('reportPlaceholder');
+  btn.disabled = true;
+  loading.style.display = 'block';
+  reportDiv.style.display = 'none';
+  placeholder.style.display = 'none';
+  lucide.createIcons();
+  try {
+    const r = await fetch('/api/weekly-report');
+    const d = await r.json();
+    if (d.report) {
+      reportDiv.innerHTML = marked(d.report);
+      reportDiv.style.display = 'block';
+    } else {
+      placeholder.textContent = d.error || 'Could not generate report.';
+      placeholder.style.display = 'block';
+    }
+  } catch(e) {
+    placeholder.textContent = 'Error generating report. Please try again.';
+    placeholder.style.display = 'block';
+  } finally {
+    loading.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+function openWeightModal() {
+  document.getElementById('weightModal').style.display = 'flex';
+  document.getElementById('weightInput').focus();
+}
+function closeWeightModal() {
+  document.getElementById('weightModal').style.display = 'none';
+}
+async function saveWeight() {
+  const val = parseFloat(document.getElementById('weightInput').value);
+  if (!val || val < 20 || val > 300) { showToast('Enter a valid weight', 'error'); return; }
+  const notes = document.getElementById('weightNotes').value;
+  await fetch('/api/weight/log', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({weight_kg: val, notes})
+  });
+  closeWeightModal();
+  showToast('Weight logged!');
+  loadHistory();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadHistory();
+});
+</script>
+<!-- Marked.js for markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}

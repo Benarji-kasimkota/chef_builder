@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Meal Planner — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">AI-powered planning</p>
+    <h1 class="page-title">Meal <span class="accent">Planner</span></h1>
+  </div>
+</div>
+
+<!-- Generate Controls -->
+<div class="card" style="margin-bottom:1.5rem">
+  <h3 class="card-title" style="margin-bottom:1rem"><i data-lucide="wand-2"></i> Generate Your Plan</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Plan Duration</label>
+      <select id="planDays" class="input">
+        <option value="3">3 Days</option>
+        <option value="5">5 Days</option>
+        <option value="7" selected>7 Days (Full Week)</option>
+      </select>
+    </div>
+    <div class="form-group" style="flex:2">
+      <label class="form-label">Special Preferences</label>
+      <input type="text" id="planPrefs" class="input" placeholder="e.g. high protein, budget-friendly, quick meals under 30 min">
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="generatePlan()" id="generateBtn">
+    <i data-lucide="sparkles"></i> Generate Meal Plan
+  </button>
+</div>
+
+<!-- Loading state -->
+<div id="planLoading" style="display:none" class="card" style="text-align:center;padding:3rem">
+  <div style="text-align:center;padding:2rem;color:var(--text-muted)">
+    <div style="font-size:3rem;margin-bottom:1rem">🧑‍🍳</div>
+    <p style="font-size:1.1rem">NutriAI is crafting your personalized meal plan...</p>
+    <p style="font-size:0.85rem;margin-top:0.5rem">This takes about 15-20 seconds</p>
+  </div>
+</div>
+
+<!-- Plan Summary -->
+<div id="planSummary" style="display:none" class="card" style="margin-bottom:1.5rem">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem">
+    <div>
+      <h3 class="card-title"><i data-lucide="clipboard-list"></i> Your Meal Plan</h3>
+      <p id="planDescription" class="text-muted" style="margin-top:0.25rem"></p>
+    </div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap" id="planTargets"></div>
+  </div>
+</div>
+
+<!-- Plan Days -->
+<div id="planDaysContainer"></div>
+
+<!-- Empty state -->
+<div id="planEmpty" class="card" style="text-align:center;padding:3rem">
+  <div style="font-size:4rem;margin-bottom:1rem">📅</div>
+  <h3 style="margin-bottom:0.5rem">No meal plan yet</h3>
+  <p class="text-muted">Click "Generate Meal Plan" to get a personalized AI-powered plan based on your nutritional needs.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function generatePlan() {
+  const days = document.getElementById('planDays').value;
+  const prefs = document.getElementById('planPrefs').value;
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('planEmpty').style.display = 'none';
+  document.getElementById('planSummary').style.display = 'none';
+  document.getElementById('planDaysContainer').innerHTML = '';
+  document.getElementById('planLoading').style.display = 'block';
+
+  try {
+    const r = await fetch('/api/meal-plan/generate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({days: parseInt(days), preferences: prefs})
+    });
+    const data = await r.json();
+    document.getElementById('planLoading').style.display = 'none';
+
+    if (data.error) {
+      showToast(data.error, 'error');
+      document.getElementById('planEmpty').style.display = 'block';
+      return;
+    }
+
+    renderPlan(data);
+  } catch(e) {
+    document.getElementById('planLoading').style.display = 'none';
+    document.getElementById('planEmpty').style.display = 'block';
+    showToast('Failed to generate plan. Please try again.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderPlan(data) {
+  // Summary
+  document.getElementById('planSummary').style.display = 'block';
+  document.getElementById('planDescription').textContent = data.plan_summary || '';
+  const targets = data.daily_targets || {};
+  document.getElementById('planTargets').innerHTML = [
+    targets.calories ? `<div class="stat-pill">🔥 ${targets.calories} kcal</div>` : '',
+    targets.protein ? `<div class="stat-pill">💪 ${targets.protein}g protein</div>` : '',
+    targets.carbs ? `<div class="stat-pill">🌾 ${targets.carbs}g carbs</div>` : '',
+    targets.fat ? `<div class="stat-pill">🥑 ${targets.fat}g fat</div>` : ''
+  ].join('');
+
+  // Days
+  const container = document.getElementById('planDaysContainer');
+  const mealEmojis = {breakfast:'🌅', lunch:'☀️', dinner:'🌙', snack:'🍎'};
+  const days = data.days || [];
+  container.innerHTML = days.map((day, i) => `
+    <div class="card plan-day-card" style="margin-bottom:1rem">
+      <div class="plan-day-header">
+        <h3 class="card-title">${day.day}</h3>
+        ${day.nutrition_highlight ? `<span class="badge badge-green">${day.nutrition_highlight}</span>` : ''}
+        ${day.daily_total ? `<span class="badge badge-ghost">
+          ${day.daily_total.calories || 0} kcal · ${day.daily_total.protein || 0}g protein
+        </span>` : ''}
+      </div>
+      <div class="plan-meals">
+        ${Object.entries(day.meals || {}).map(([mealType, meal]) => `
+          <div class="plan-meal-item">
+            <div class="plan-meal-icon">${mealEmojis[mealType] || '🍽️'}</div>
+            <div class="plan-meal-info">
+              <div class="plan-meal-type">${mealType.charAt(0).toUpperCase()+mealType.slice(1)}</div>
+              <div class="plan-meal-name">${meal.name}</div>
+              <div class="plan-meal-desc">${meal.description || ''}</div>
+            </div>
+            <div class="plan-meal-stats">
+              <span>${meal.calories || 0} kcal</span>
+              <span>${meal.protein || 0}g P</span>
+              <span>${meal.prep_time || ''}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+});
+</script>
+{% endblock %}

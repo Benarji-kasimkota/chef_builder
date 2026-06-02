@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Grocery List — Chef Builder{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-subtitle">Smart shopping</p>
+    <h1 class="page-title">Grocery <span class="accent">List</span></h1>
+  </div>
+  <button class="btn btn-ghost" onclick="printList()" id="printBtn" style="display:none">
+    <i data-lucide="printer"></i> Print
+  </button>
+</div>
+
+<!-- Generate Controls -->
+<div class="card" style="margin-bottom:1.5rem">
+  <h3 class="card-title" style="margin-bottom:1rem"><i data-lucide="shopping-cart"></i> Generate Smart List</h3>
+  <p class="text-muted" style="margin-bottom:1rem">Based on your last 7 days of nutrition data, NutriAI will suggest what to buy to fill your nutrient gaps.</p>
+  <div class="form-group" style="margin-bottom:1rem">
+    <label class="form-label">Additional Preferences</label>
+    <input type="text" id="groceryPrefs" class="input" placeholder="e.g. budget under $50, organic, Asian ingredients, meal prep friendly">
+  </div>
+  <button class="btn btn-primary" onclick="generateGrocery()" id="generateBtn">
+    <i data-lucide="sparkles"></i> Generate Grocery List
+  </button>
+</div>
+
+<!-- Loading -->
+<div id="groceryLoading" style="display:none" class="card">
+  <div style="text-align:center;padding:2.5rem;color:var(--text-muted)">
+    <div style="font-size:3rem;margin-bottom:1rem">🛒</div>
+    <p>Building your personalized grocery list...</p>
+  </div>
+</div>
+
+<!-- Cost estimate -->
+<div id="costEstimate" style="display:none" class="card grocery-cost-card" style="margin-bottom:1rem">
+  <i data-lucide="tag"></i>
+  <span>Estimated weekly cost: <strong id="costText"></strong></span>
+  <span class="text-muted" style="margin-left:auto;font-size:0.8rem">Check all items you've added to cart</span>
+</div>
+
+<!-- Grocery Categories -->
+<div id="groceryContainer"></div>
+
+<!-- Empty state -->
+<div id="groceryEmpty" class="card" style="text-align:center;padding:3rem">
+  <div style="font-size:4rem;margin-bottom:1rem">🛒</div>
+  <h3 style="margin-bottom:0.5rem">Your list is empty</h3>
+  <p class="text-muted">Generate a smart grocery list personalized to your nutritional needs and goals.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let checkedItems = new Set();
+
+async function generateGrocery() {
+  const prefs = document.getElementById('groceryPrefs').value;
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('groceryEmpty').style.display = 'none';
+  document.getElementById('groceryContainer').innerHTML = '';
+  document.getElementById('costEstimate').style.display = 'none';
+  document.getElementById('printBtn').style.display = 'none';
+  document.getElementById('groceryLoading').style.display = 'block';
+
+  try {
+    const r = await fetch('/api/grocery/generate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({preferences: prefs})
+    });
+    const data = await r.json();
+    document.getElementById('groceryLoading').style.display = 'none';
+
+    if (data.error) {
+      showToast(data.error, 'error');
+      document.getElementById('groceryEmpty').style.display = 'block';
+      return;
+    }
+
+    renderGrocery(data);
+  } catch(e) {
+    document.getElementById('groceryLoading').style.display = 'none';
+    document.getElementById('groceryEmpty').style.display = 'block';
+    showToast('Failed to generate list. Please try again.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderGrocery(data) {
+  if (data.total_estimated_cost) {
+    document.getElementById('costText').textContent = data.total_estimated_cost;
+    document.getElementById('costEstimate').style.display = 'flex';
+  }
+  document.getElementById('printBtn').style.display = 'flex';
+
+  const container = document.getElementById('groceryContainer');
+  const categories = data.categories || [];
+  container.innerHTML = categories.map((cat, ci) => `
+    <div class="card grocery-card" style="margin-bottom:1rem">
+      <div class="card-header">
+        <h3 class="card-title">${cat.emoji || '🛒'} ${cat.name}</h3>
+        <span class="badge badge-ghost">${(cat.items||[]).length} items</span>
+      </div>
+      <div class="grocery-items">
+        ${(cat.items || []).map((item, ii) => {
+          const id = `item-${ci}-${ii}`;
+          return `
+          <label class="grocery-item" for="${id}">
+            <input type="checkbox" id="${id}" class="grocery-check"
+              onchange="toggleItem(this, '${item.name}')">
+            <div class="grocery-item-info">
+              <span class="grocery-item-name">${item.name}</span>
+              <span class="grocery-item-amount">${item.amount || ''}</span>
+            </div>
+            ${item.priority === 'high' ? '<span class="badge badge-amber">Priority</span>' : ''}
+            <span class="grocery-item-reason">${item.reason || ''}</span>
+          </label>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+function toggleItem(el, name) {
+  if (el.checked) {
+    checkedItems.add(name);
+    el.closest('.grocery-item').classList.add('checked');
+  } else {
+    checkedItems.delete(name);
+    el.closest('.grocery-item').classList.remove('checked');
+  }
+}
+
+function printList() {
+  window.print();
+}
+
+window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+</script>
+{% endblock %}
