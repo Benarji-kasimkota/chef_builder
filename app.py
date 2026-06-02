@@ -25,6 +25,9 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:/
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
+# Ensure instance folder exists (required on fresh deployments like Render)
+os.makedirs(app.instance_path, exist_ok=True)
+
 with app.app_context():
     db.create_all()
     if not UserProfile.query.first():
