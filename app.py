@@ -580,6 +580,7 @@ def chat_api():
     data = request.json
     user_message = data.get("message", "").strip()
     category = data.get("category", "general")
+    language = data.get("language", "").strip()
     if not user_message:
         return jsonify({"error": "Empty message"}), 400
 
@@ -594,6 +595,9 @@ def chat_api():
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
     rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
+    # Inject language instruction if user explicitly selected one
+    if language:
+        messages[-1]["content"] = f"[Respond in {language}] {messages[-1]['content']}"
 
     try:
         reply = ai_service.chat(
@@ -786,6 +790,19 @@ def generate_meal_plan():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/translate", methods=["POST"])
+def translate_ingredient():
+    data = request.json or {}
+    text = data.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+    try:
+        result = ai_service.translate_ingredient(text)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e), "english_name": text}), 500
 
 
 @app.route("/api/recipes/from-ingredients", methods=["POST"])

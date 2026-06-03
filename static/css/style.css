@@ -358,6 +358,33 @@ body {
 .macro-legend div { display: flex; align-items: center; gap: 6px; }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
+/* ── Language bar (chat) ── */
+.lang-bar {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.lang-label {
+  display: flex; align-items: center; gap: 5px; font-size: 11px;
+  color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
+}
+.lang-label i { width: 13px; height: 13px; }
+.lang-chips { display: flex; gap: 5px; flex-wrap: wrap; overflow-x: auto; scrollbar-width: none; }
+.lang-chips::-webkit-scrollbar { display: none; }
+.lang-chip {
+  padding: 3px 9px; border-radius: 100px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+  font-size: 11px; font-weight: 600; transition: all var(--transition);
+  white-space: nowrap; flex-shrink: 0;
+}
+.lang-chip:hover { border-color: rgba(255,255,255,0.2); color: var(--text-primary); }
+.lang-chip.active { background: rgba(0,212,170,0.12); border-color: var(--accent-teal); color: var(--accent-teal); }
+
+/* Translation badge in food search dropdown */
+.dd-translation-badge {
+  padding: 8px 14px; font-size: 11px; color: var(--accent-teal);
+  background: rgba(0,212,170,0.06); border-bottom: 1px solid var(--border);
+}
+
 /* ── Chat Page ── */
 .chat-page { display: flex; flex-direction: column; height: calc(100vh - 56px); max-width: 800px; }
 @media (max-width: 900px) {

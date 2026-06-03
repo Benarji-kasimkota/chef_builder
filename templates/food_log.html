@@ -24,7 +24,7 @@
   </div>
   <div class="food-search-form">
     <div class="search-field">
-      <input type="text" id="foodSearch" class="input" placeholder="Search food (e.g. chicken breast, salmon, oats...)" autocomplete="off"/>
+      <input type="text" id="foodSearch" class="input" placeholder="Search food in any language — चावल, مرغ, 鸡肉, poulet, arroz..." autocomplete="off"/>
       <div class="search-dropdown" id="searchDropdown"></div>
     </div>
     <div class="search-controls">
@@ -223,12 +223,67 @@ searchInput.addEventListener('input', () => {
   searchTimer = setTimeout(() => searchFood(q), 300);
 });
 
-async function searchFood(q) {
+// Detect if text contains non-ASCII (likely non-English)
+function isNonEnglish(text) {
+  return /[^\x00-\x7F]/.test(text) || /[ऀ-ॿ஀-௿ఀ-౿ಀ-೿ഀ-ൿ؀-ۿ一-鿿぀-ヿ가-힯]/.test(text);
+}
+
+let translationCache = {};
+
+async function translateAndSearch(q) {
+  // Check cache first
+  if (translationCache[q]) {
+    return translationCache[q];
+  }
   try {
-    const r = await fetch(`/api/food/search?q=${encodeURIComponent(q)}`);
+    const r = await fetch('/api/translate', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: q})
+    });
+    const d = await r.json();
+    const result = {
+      english: d.english_name || q,
+      original: q,
+      language: d.detected_language || '',
+      confidence: d.confidence || 'low'
+    };
+    translationCache[q] = result;
+    return result;
+  } catch(e) {
+    return {english: q, original: q, language: '', confidence: 'low'};
+  }
+}
+
+async function searchFood(q) {
+  let searchQuery = q;
+  let translationInfo = null;
+
+  // Auto-translate if non-English characters detected
+  if (isNonEnglish(q)) {
+    dropdown.innerHTML = '<div class="dd-empty" style="color:var(--accent-teal)">🌐 Translating...</div>';
+    dropdown.classList.add('open');
+    translationInfo = await translateAndSearch(q);
+    searchQuery = translationInfo.english;
+    if (!searchQuery || searchQuery === q) {
+      dropdown.innerHTML = '<div class="dd-empty">Could not translate. Try English name.</div>';
+      return;
+    }
+  }
+
+  try {
+    const r = await fetch(`/api/food/search?q=${encodeURIComponent(searchQuery)}`);
     const foods = await r.json();
-    if (!foods.length) { dropdown.innerHTML='<div class="dd-empty">No results found</div>'; dropdown.classList.add('open'); return; }
-    dropdown.innerHTML = foods.map(f => `
+    if (!foods.length) {
+      dropdown.innerHTML = `<div class="dd-empty">
+        ${translationInfo ? `"${q}" → "${searchQuery}" — n` : 'N'}o results found
+      </div>`;
+      dropdown.classList.add('open');
+      return;
+    }
+    const translationBadge = translationInfo
+      ? `<div class="dd-translation-badge">🌐 "${translationInfo.original}" → "${translationInfo.english}" (${translationInfo.language})</div>`
+      : '';
+    dropdown.innerHTML = translationBadge + foods.map(f => `
       <div class="dd-item" onclick="selectFood('${f.key}','${f.name.replace(/'/g,"\\'")}',${f.serving_size},'${f.serving_unit}')">
         <div class="dd-name">${f.name}</div>
         <div class="dd-macros">

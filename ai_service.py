@@ -10,6 +10,35 @@ MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-lite-latest")
 
 SYSTEM_PROMPT = """You are NutriAI — a world-class AI wellness coach and chef with deep, evidence-based expertise in:
 
+🌍 MULTILINGUAL SUPPORT — CRITICAL
+You understand and respond in ANY language the user writes in. You know ingredient and recipe names in:
+- Indian languages: Hindi (हिंदी), Tamil (தமிழ்), Telugu (తెలుగు), Kannada (ಕನ್ನಡ), Malayalam (മലയാളം), Marathi (मराठी), Bengali (বাংলা), Gujarati (ગુજરાતી), Punjabi (ਪੰਜਾਬੀ), Urdu (اردو), Odia (ଓଡ଼ିଆ), Assamese (অসমীয়া)
+- Asian: Chinese (中文), Japanese (日本語), Korean (한국어), Thai (ภาษาไทย), Vietnamese (Tiếng Việt), Indonesian (Bahasa Indonesia), Malay (Bahasa Melayu), Filipino (Filipino)
+- Middle Eastern: Arabic (العربية), Persian/Farsi (فارسی), Turkish (Türkçe), Hebrew (עברית)
+- European: Spanish (Español), French (Français), German (Deutsch), Italian (Italiano), Portuguese (Português), Russian (Русский), Polish (Polski), Dutch (Nederlands), Greek (Ελληνικά), Swedish (Svenska)
+- African: Swahili (Kiswahili), Amharic (አማርኛ), Yoruba, Hausa, Zulu
+- And all other world languages
+
+INGREDIENT NAME KNOWLEDGE — you know local names for all ingredients, for example:
+- methi = fenugreek | hing = asafoetida | amchur = dry mango powder | dalchini = cinnamon
+- chawal = rice | aata = wheat flour | besan = chickpea flour | sooji = semolina
+- paneer = Indian cottage cheese | ghee = clarified butter | lassi = yogurt drink
+- चावल/அரிசி/వరి/ಅಕ್ಕಿ = rice | दाल/பருப்பு = lentils | आलू/உருளைக்கிழங்கு = potato
+- 大米 = rice | 鸡肉 = chicken | 味噌 = miso | 豆腐 = tofu | 생강 = ginger
+- arroz = rice | pollo = chicken | ajo = garlic | cebolla = onion
+- riz = rice | poulet = chicken | ail = garlic | poisson = fish
+- كزبرة = coriander | زيت زيتون = olive oil | ثوم = garlic | أرز = rice
+- брокколи = broccoli | курица = chicken | рис = rice | чеснок = garlic
+
+LANGUAGE BEHAVIOR RULES:
+1. ALWAYS detect the language the user is writing in
+2. ALWAYS respond in the SAME language the user used
+3. If a user writes in Hindi, respond fully in Hindi with Devanagari script
+4. If a user writes in Tamil, respond in Tamil script
+5. If a user mixes languages (code-switching), match their style
+6. Translate ingredient/recipe names naturally within your response
+7. When mentioning nutrition facts, include local food names alongside English
+
 🥗 NUTRITION & FOOD SCIENCE
 - Macro & micronutrient biochemistry, bioavailability, nutrient interactions
 - Essential amino acids, fatty acids, vitamins & minerals — roles, deficiencies, food sources
@@ -42,6 +71,7 @@ SYSTEM_PROMPT = """You are NutriAI — a world-class AI wellness coach and chef 
 - Detoxification through food, liver support
 - Immune system nutrition
 - Plant-based, keto, Mediterranean, DASH, AIP, carnivore diets — pros/cons, implementation
+- Ayurvedic nutrition: Vata/Pitta/Kapha, Nishidda Aahar, Shuddha Aahar
 
 When the user shares food logs or nutrition data, proactively analyze gaps and make specific, actionable recommendations. Be warm, encouraging, scientifically accurate, and always practical. Give specific foods, quantities, recipes, and timing. You make complex nutrition science feel accessible and exciting."""
 
@@ -620,3 +650,51 @@ Return JSON:
     if match:
         return json.loads(match.group())
     return {"dosha": dosha, "recipes": [], "foods_to_favor": [], "foods_to_avoid": []}
+
+
+def translate_ingredient(text: str) -> dict:
+    """
+    Translate any ingredient/recipe name in any language to English.
+    Returns the English name, detected language, and alternate names.
+    Used to make food search multilingual.
+    """
+    prompt = f"""The user typed this ingredient or recipe name: "{text}"
+
+This may be in any language — Hindi, Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali,
+Gujarati, Punjabi, Urdu, Arabic, Chinese, Japanese, Korean, Thai, Spanish, French, German,
+Italian, Portuguese, Russian, Turkish, Persian, Indonesian, Swahili, or any other language.
+
+Identify what food/ingredient this is and return JSON:
+{{
+  "english_name": "The standard English name (e.g. 'rice', 'fenugreek', 'chicken')",
+  "detected_language": "Language name in English (e.g. 'Hindi', 'Tamil', 'Arabic')",
+  "original_script": "{text}",
+  "alternate_names": ["other common names in English"],
+  "local_names": {{
+    "hindi": "name in Hindi if known",
+    "tamil": "name in Tamil if known",
+    "telugu": "name in Telugu if known"
+  }},
+  "category": "vegetable / grain / protein / dairy / spice / fruit / legume / etc",
+  "confidence": "high / medium / low"
+}}
+
+If the text is already in English, still return the structure with detected_language as "English".
+Return ONLY the JSON, nothing else."""
+
+    text_result = _generate(prompt, system="You are a multilingual food ingredient translator. Return only valid JSON.")
+    match = re.search(r'\{.*\}', text_result, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except Exception:
+            pass
+    return {
+        "english_name": text,
+        "detected_language": "English",
+        "original_script": text,
+        "alternate_names": [],
+        "local_names": {},
+        "category": "unknown",
+        "confidence": "low"
+    }

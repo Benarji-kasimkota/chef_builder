@@ -15,6 +15,32 @@
     <div class="chat-status"><span class="status-dot"></span> Online</div>
   </div>
 
+  <!-- Language selector -->
+  <div class="lang-bar">
+    <span class="lang-label"><i data-lucide="languages"></i> Type in any language:</span>
+    <div class="lang-chips" id="langChips">
+      <button class="lang-chip active" onclick="setLang('',this)" title="Auto-detect">🌐 Auto</button>
+      <button class="lang-chip" onclick="setLang('Hindi',this)" title="हिंदी">🇮🇳 हिंदी</button>
+      <button class="lang-chip" onclick="setLang('Tamil',this)" title="தமிழ்">தமிழ்</button>
+      <button class="lang-chip" onclick="setLang('Telugu',this)" title="తెలుగు">తెలుగు</button>
+      <button class="lang-chip" onclick="setLang('Kannada',this)" title="ಕನ್ನಡ">ಕನ್ನಡ</button>
+      <button class="lang-chip" onclick="setLang('Malayalam',this)" title="മലയാളം">മലയാളം</button>
+      <button class="lang-chip" onclick="setLang('Bengali',this)" title="বাংলা">বাংলা</button>
+      <button class="lang-chip" onclick="setLang('Marathi',this)" title="मराठी">मराठी</button>
+      <button class="lang-chip" onclick="setLang('Gujarati',this)" title="ગુજરાતી">ગુજ.</button>
+      <button class="lang-chip" onclick="setLang('Punjabi',this)" title="ਪੰਜਾਬੀ">ਪੰਜਾਬੀ</button>
+      <button class="lang-chip" onclick="setLang('Urdu',this)" title="اردو">اردو</button>
+      <button class="lang-chip" onclick="setLang('Arabic',this)" title="العربية">عربي</button>
+      <button class="lang-chip" onclick="setLang('Chinese',this)" title="中文">中文</button>
+      <button class="lang-chip" onclick="setLang('Japanese',this)" title="日本語">日本語</button>
+      <button class="lang-chip" onclick="setLang('Korean',this)" title="한국어">한국어</button>
+      <button class="lang-chip" onclick="setLang('Spanish',this)" title="Español">ES</button>
+      <button class="lang-chip" onclick="setLang('French',this)" title="Français">FR</button>
+      <button class="lang-chip" onclick="setLang('Turkish',this)" title="Türkçe">TR</button>
+      <button class="lang-chip" onclick="setLang('Swahili',this)" title="Kiswahili">SW</button>
+    </div>
+  </div>
+
   <!-- Category Chips -->
   <div class="chat-categories">
     <button class="cat-chip active" data-cat="general" onclick="setCategory(this,'general')">🌟 General</button>
@@ -130,7 +156,39 @@
 marked.setOptions({ breaks: true, gfm: true });
 
 let currentCategory = 'general';
+let currentLang = '';
 const messagesDiv = document.getElementById('chatMessages');
+
+const LANG_PLACEHOLDERS = {
+  '':         'Ask about nutrition, recipes, fitness, mindfulness...',
+  'Hindi':    'पोषण, रेसिपी, फिटनेस के बारे में पूछें...',
+  'Tamil':    'ஊட்டச்சத்து, சமையல் வகைகள் பற்றி கேளுங்கள்...',
+  'Telugu':   'పోషణ, వంటకాల గురించి అడగండి...',
+  'Kannada':  'ಪೋಷಣೆ, ಪಾಕವಿಧಾನಗಳ ಬಗ್ಗೆ ಕೇಳಿ...',
+  'Malayalam':'പോഷകാഹാരം, പാചകക്കുറിപ്പുകൾ ചോദിക്കൂ...',
+  'Bengali':  'পুষ্টি, রেসিপি সম্পর্কে জিজ্ঞাসা করুন...',
+  'Marathi':  'पोषण, पाककृती बद्दल विचारा...',
+  'Gujarati': 'પોષણ, રેસીપી વિશે પૂછો...',
+  'Punjabi':  'ਪੋਸ਼ਣ, ਪਕਵਾਨਾਂ ਬਾਰੇ ਪੁੱਛੋ...',
+  'Urdu':     'غذائیت، ترکیبوں کے بارے میں پوچھیں...',
+  'Arabic':   'اسأل عن التغذية والوصفات...',
+  'Chinese':  '询问营养、食谱、健身...',
+  'Japanese': '栄養、レシピ、フィットネスについて聞いてください...',
+  'Korean':   '영양, 레시피, 피트니스에 대해 물어보세요...',
+  'Spanish':  'Pregunta sobre nutrición, recetas, fitness...',
+  'French':   'Posez des questions sur la nutrition, les recettes...',
+  'Turkish':  'Beslenme, tarifler hakkında sorun...',
+  'Swahili':  'Uliza kuhusu lishe, mapishi, mazoezi...',
+};
+
+function setLang(lang, btn) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  const input = document.getElementById('chatInput');
+  input.placeholder = LANG_PLACEHOLDERS[lang] || LANG_PLACEHOLDERS[''];
+  input.focus();
+}
 
 function setCategory(el, cat) {
   currentCategory = cat;
@@ -202,7 +260,7 @@ async function sendMessage() {
     const r = await fetch('/api/chat', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({message: msg, category: currentCategory})
+      body: JSON.stringify({message: msg, category: currentCategory, language: currentLang})
     });
     const d = await r.json();
     document.getElementById('typingIndicator').style.display = 'none';
