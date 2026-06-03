@@ -293,6 +293,54 @@ body {
 .empty-state h3 { font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
 .empty-state p { font-size: 13px; margin-bottom: 16px; }
 
+/* ── Log Mode Tabs ── */
+.log-mode-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.log-mode-tab {
+  display: flex; align-items: center; gap: 6px; padding: 8px 18px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary);
+  cursor: pointer; font-size: 13px; font-weight: 600; transition: all var(--transition);
+}
+.log-mode-tab i { width: 14px; height: 14px; }
+.log-mode-tab:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.2); }
+.log-mode-tab.active { background: rgba(0,212,170,0.15); border-color: var(--accent-teal); color: var(--accent-teal); }
+
+/* ── Unit selector ── */
+.qty-unit-wrap { display: flex; gap: 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); flex-shrink: 0; }
+.qty-input { border: none; border-radius: 0; width: 80px; border-right: 1px solid var(--border); }
+.unit-select { border: none; border-radius: 0; width: 80px; background: var(--bg-card); cursor: pointer; padding: 10px 8px; }
+.qty-unit-wrap .input:focus { box-shadow: none; border-color: transparent; }
+.qty-unit-wrap:focus-within { border-color: var(--accent-teal); box-shadow: 0 0 0 3px rgba(0,212,170,0.1); }
+
+/* ── Custom Dish Builder ── */
+.custom-dish-card { border: 1px solid rgba(124,58,237,0.25); background: linear-gradient(135deg, rgba(124,58,237,0.05), rgba(0,0,0,0)); }
+.dish-ing-header { display: grid; grid-template-columns: 1fr 100px 90px 36px; gap: 6px; padding: 4px 0; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+.dish-ing-row { display: grid; grid-template-columns: 1fr 100px 90px 36px; gap: 6px; align-items: start; margin-bottom: 6px; position: relative; }
+.dish-ing-name { }
+.dish-ing-qty { }
+.dish-ing-unit { padding: 10px 8px; cursor: pointer; }
+.dish-ing-search-wrap { position: absolute; top: 100%; left: 0; right: 120px; z-index: 50; background: #0d1f38; border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto; box-shadow: var(--shadow); display: none; }
+.dish-ing-search-wrap.open { display: block; }
+.dish-quick-add { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; align-items: center; }
+
+/* Dish result */
+.dish-result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.dish-result-header h4 { font-family: var(--font-heading); font-size: 15px; font-weight: 700; }
+.dish-macro-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 16px; }
+.dish-macro-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+.dish-macro-val { font-family: var(--font-heading); font-size: 17px; font-weight: 800; color: var(--accent-teal); }
+.dish-macro-lbl { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.dish-breakdown-title { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 8px; }
+.dish-breakdown-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.dish-breakdown-row { display: grid; grid-template-columns: 1fr 60px 80px 60px; gap: 8px; align-items: center; padding: 6px 10px; background: var(--bg-card); border-radius: 6px; font-size: 12px; }
+.dish-breakdown-name { font-weight: 600; }
+.dish-breakdown-weight, .dish-breakdown-cal, .dish-breakdown-prot { color: var(--text-muted); text-align: right; }
+.dish-breakdown-cal { color: var(--accent-amber); }
+.dish-notes { display: flex; flex-direction: column; gap: 6px; }
+.dish-note { font-size: 12px; color: var(--text-secondary); padding: 6px 10px; background: rgba(0,212,170,0.06); border-left: 3px solid rgba(0,212,170,0.3); border-radius: 0 6px 6px 0; }
+.dish-health-notes { margin-bottom: 8px; }
+.preview-conversion { color: var(--accent-teal); font-size: 11px; margin-top: 4px; }
+
 /* ── Food Log Page ── */
 .add-food-card { border: 1px solid var(--border-accent); }
 .food-search-form { display: flex; flex-direction: column; gap: 12px; }
@@ -927,6 +975,13 @@ body {
   /* Prevent iOS auto-zoom on inputs (requires font-size ≥ 16px) */
   .input, .chat-input, select { font-size: 16px; }
 }
+
+  /* Food log */
+  .dish-macro-grid { grid-template-columns: repeat(3, 1fr); }
+  .dish-ing-header { grid-template-columns: 1fr 80px 80px 36px; }
+  .dish-ing-row { grid-template-columns: 1fr 80px 80px 36px; }
+  .dish-breakdown-row { grid-template-columns: 1fr 50px 70px; }
+  .dish-breakdown-prot { display: none; }
 
   /* Recipe studio tabs */
   .recipe-section-tabs { gap: 6px; }

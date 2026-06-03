@@ -811,6 +811,25 @@ def generate_meal_plan():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/dish/calculate", methods=["POST"])
+def calculate_dish():
+    data = request.json or {}
+    dish_name = data.get("dish_name", "Custom Dish").strip()
+    ingredients = data.get("ingredients", [])
+    if not ingredients:
+        return jsonify({"error": "No ingredients provided"}), 400
+    try:
+        result = ai_service.calculate_dish_nutrition(
+            dish_name=dish_name,
+            ingredients=ingredients,
+            cooking_method=data.get("cooking_method", ""),
+            servings=int(data.get("servings", 1))
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/translate", methods=["POST"])
 def translate_ingredient():
     data = request.json or {}

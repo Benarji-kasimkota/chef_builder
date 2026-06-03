@@ -8,15 +8,25 @@
   </div>
 </div>
 
-<!-- Search + Add -->
-<div class="card add-food-card">
+<!-- Log mode tabs -->
+<div class="log-mode-tabs">
+  <button class="log-mode-tab active" onclick="switchLogMode('search', this)">
+    <i data-lucide="search"></i> Search Food
+  </button>
+  <button class="log-mode-tab" onclick="switchLogMode('dish', this)">
+    <i data-lucide="chef-hat"></i> Build Custom Dish
+  </button>
+</div>
+
+<!-- ── MODE 1: Search & Add Food ── -->
+<div class="card add-food-card" id="mode-search">
   <div class="card-header">
     <h3 class="card-title"><i data-lucide="search"></i> Search & Add Food</h3>
     <div style="display:flex;gap:0.5rem">
-      <button class="btn btn-sm btn-ghost" onclick="openBarcodeModal()" title="Scan barcode">
+      <button class="btn btn-sm btn-ghost" onclick="openBarcodeModal()">
         <i data-lucide="scan-barcode"></i> Barcode
       </button>
-      <button class="btn btn-sm btn-ghost" onclick="document.getElementById('imageUpload').click()" title="Analyze meal photo">
+      <button class="btn btn-sm btn-ghost" onclick="document.getElementById('imageUpload').click()">
         <i data-lucide="camera"></i> Photo
       </button>
       <input type="file" id="imageUpload" accept="image/*" style="display:none" onchange="analyzeImage(this)">
@@ -24,7 +34,8 @@
   </div>
   <div class="food-search-form">
     <div class="search-field">
-      <input type="text" id="foodSearch" class="input" placeholder="Search food in any language — चावल, مرغ, 鸡肉, poulet, arroz..." autocomplete="off"/>
+      <input type="text" id="foodSearch" class="input"
+        placeholder="Search in any language — chicken, चावल, 鸡肉, poulet, arroz..." autocomplete="off"/>
       <div class="search-dropdown" id="searchDropdown"></div>
     </div>
     <div class="search-controls">
@@ -34,9 +45,21 @@
         <option value="dinner">🌙 Dinner</option>
         <option value="snack">🍎 Snack</option>
       </select>
-      <div class="qty-wrap">
-        <input type="number" id="quantity" class="input" value="100" min="1" max="2000" placeholder="g"/>
-        <span class="qty-unit" id="qtyUnit">g</span>
+      <!-- Quantity + Unit selector -->
+      <div class="qty-unit-wrap">
+        <input type="number" id="quantity" class="input qty-input" value="100" min="0.1" step="0.5" placeholder="Amount"/>
+        <select id="qtyUnitSelect" class="input unit-select" onchange="onUnitChange()">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="ml">ml</option>
+          <option value="l">L</option>
+          <option value="cup">cup</option>
+          <option value="tbsp">tbsp</option>
+          <option value="tsp">tsp</option>
+          <option value="oz">oz</option>
+          <option value="pcs">pcs</option>
+          <option value="serving">serving</option>
+        </select>
       </div>
       <button class="btn btn-primary" id="addFoodBtn" disabled onclick="addFood()">
         <i data-lucide="plus"></i> Add
@@ -47,6 +70,86 @@
   <div class="food-preview" id="foodPreview" style="display:none">
     <div class="preview-name" id="previewName"></div>
     <div class="preview-macros" id="previewMacros"></div>
+    <div class="preview-conversion" id="previewConversion" style="font-size:11px;color:var(--text-muted);margin-top:4px"></div>
+  </div>
+</div>
+
+<!-- ── MODE 2: Custom Dish Builder ── -->
+<div class="card custom-dish-card" id="mode-dish" style="display:none">
+  <div class="card-header">
+    <h3 class="card-title"><i data-lucide="chef-hat"></i> Build a Custom Dish</h3>
+    <span class="text-muted" style="font-size:12px">Enter all ingredients with quantities → AI calculates nutrition</span>
+  </div>
+
+  <div class="dish-builder">
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Dish Name</label>
+        <input type="text" id="dishName" class="input" placeholder="e.g. Dal Chawal, Pasta Bolognese, Egg Fried Rice..."/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Meal Type</label>
+        <select id="dishMealType" class="input select-input">
+          <option value="breakfast">🌅 Breakfast</option>
+          <option value="lunch" selected>☀️ Lunch</option>
+          <option value="dinner">🌙 Dinner</option>
+          <option value="snack">🍎 Snack</option>
+        </select>
+      </div>
+      <div class="form-group" style="max-width:90px">
+        <label class="form-label">Servings</label>
+        <input type="number" id="dishServings" class="input" value="1" min="1" max="20" step="0.5"/>
+      </div>
+    </div>
+
+    <!-- Ingredient rows -->
+    <div class="dish-ing-header">
+      <span>Ingredient</span>
+      <span>Quantity</span>
+      <span>Unit</span>
+      <span></span>
+    </div>
+    <div id="dishIngredients">
+      <!-- Dynamic rows injected here -->
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="addDishIngredientRow()" style="margin-top:6px">
+      <i data-lucide="plus"></i> Add Ingredient
+    </button>
+
+    <!-- Quick add common ingredients -->
+    <div class="dish-quick-add">
+      <span class="text-muted" style="font-size:12px">Quick add:</span>
+      {% for item in ['Rice','Dal','Chicken','Eggs','Milk','Oil','Onion','Tomato','Potato','Paneer','Wheat flour','Sugar','Salt','Ghee','Spinach'] %}
+      <button class="fridge-quick-btn" onclick="quickAddDishIng('{{ item }}')">{{ item }}</button>
+      {% endfor %}
+    </div>
+
+    <!-- Cooking method -->
+    <div class="form-group" style="margin-top:1rem">
+      <label class="form-label">Cooking Method & Process <span class="text-muted">(optional but improves accuracy)</span></label>
+      <textarea id="dishCookingMethod" class="input textarea" rows="3"
+        placeholder="Describe how you made this dish — e.g. 'Sautéed onions in 2 tbsp oil for 5 min, added spices, pressure cooked dal for 3 whistles, mixed with steamed rice'"></textarea>
+    </div>
+
+    <button class="btn btn-primary" onclick="calculateDishNutrition()" id="calcDishBtn">
+      <i data-lucide="calculator"></i> Calculate Nutrition
+    </button>
+  </div>
+
+  <!-- Dish nutrition result -->
+  <div id="dishNutritionResult" style="display:none;margin-top:1.5rem">
+    <div class="dish-result-header">
+      <h4 id="dishResultTitle"></h4>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dishNutritionResult').style.display='none'">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="dish-macro-grid" id="dishMacroGrid"></div>
+    <div id="dishIngBreakdown"></div>
+    <div id="dishHealthNotes" class="dish-health-notes"></div>
+    <button class="btn btn-primary" onclick="logCustomDish()" id="logDishBtn" style="margin-top:1rem;width:100%">
+      <i data-lucide="plus"></i> Log This Dish
+    </button>
   </div>
 </div>
 
@@ -210,7 +313,49 @@
 {% block scripts %}
 <script>
 let selectedFood = null;
+let calculatedDish = null;
 
+// ── Unit conversion to grams ──────────────────────────────────────────────
+const UNIT_TO_G = { g:1, kg:1000, ml:1, l:1000, cup:240, tbsp:15, tsp:5, oz:28.35, lb:453.6 };
+
+function toGrams(qty, unit, servingSizeG) {
+  if (unit === 'pcs' || unit === 'piece') return qty * (servingSizeG || 100);
+  if (unit === 'serving') return qty * (servingSizeG || 100);
+  return qty * (UNIT_TO_G[unit] || 1);
+}
+
+function onUnitChange() {
+  if (!selectedFood) return;
+  updatePreviewForUnit();
+}
+
+function updatePreviewForUnit() {
+  if (!selectedFood) return;
+  const qty = parseFloat(document.getElementById('quantity').value) || 1;
+  const unit = document.getElementById('qtyUnitSelect').value;
+  const servingSizeG = selectedFood.serving_size || 100;
+  const grams = toGrams(qty, unit, servingSizeG);
+  const ratio = grams / 100;
+  const n = selectedFood.nutrition || {};
+  const cal = Math.round((n.calories || 0) * ratio);
+  const prot = ((n.protein || 0) * ratio).toFixed(1);
+  document.getElementById('previewConversion').textContent =
+    unit !== 'g' ? `≈ ${Math.round(grams)}g · ${cal} kcal · ${prot}g protein` : '';
+}
+
+// ── Log mode switch ───────────────────────────────────────────────────────
+function switchLogMode(mode, btn) {
+  document.querySelectorAll('.log-mode-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('mode-search').style.display = mode === 'search' ? 'block' : 'none';
+  document.getElementById('mode-dish').style.display = mode === 'dish' ? 'block' : 'none';
+  if (mode === 'dish' && document.querySelectorAll('.dish-ing-row').length === 0) {
+    addDishIngredientRow(); addDishIngredientRow(); addDishIngredientRow();
+  }
+  lucide.createIcons();
+}
+
+// ── Search ────────────────────────────────────────────────────────────────
 const searchInput = document.getElementById('foodSearch');
 const dropdown = document.getElementById('searchDropdown');
 const addBtn = document.getElementById('addFoodBtn');
@@ -301,31 +446,37 @@ async function searchFood(q) {
 async function selectFood(key, name, servingSize, servingUnit) {
   dropdown.classList.remove('open');
   searchInput.value = name;
+  // Default to serving size in grams
   document.getElementById('quantity').value = servingSize;
-  document.getElementById('qtyUnit').textContent = servingUnit;
+  document.getElementById('qtyUnitSelect').value = 'g';
 
   try {
     const r = await fetch(`/api/food/detail?key=${encodeURIComponent(key)}`);
     const data = await r.json();
-    selectedFood = { key, name, ...data };
+    selectedFood = { key, name, serving_size: servingSize, serving_unit: servingUnit, ...data };
     const n = data.nutrition || {};
+    const perServing = servingSize !== 100 ? ` (per ${servingSize}${servingUnit})` : ' (per 100g)';
     document.getElementById('previewName').textContent = name;
     document.getElementById('previewMacros').innerHTML = `
       <span>🔥 ${n.calories||0} kcal</span>
-      <span>💪 ${n.protein||0}g protein</span>
-      <span>🌾 ${n.carbs||0}g carbs</span>
-      <span>🥑 ${n.fat||0}g fat</span>
-      <span>Ω ${n.omega3||0}g omega-3</span>`;
+      <span>💪 ${n.protein||0}g P</span>
+      <span>🌾 ${n.carbs||0}g C</span>
+      <span>🥑 ${n.fat||0}g F</span>
+      <span>Ω ${n.omega3||0}g ω-3</span>
+      <span class="text-muted">${perServing}</span>`;
     document.getElementById('foodPreview').style.display = 'block';
+    document.getElementById('previewConversion').textContent = '';
     addBtn.disabled = false;
   } catch(e) { showToast('Could not load food details','error'); }
 }
 
 async function addFood() {
   if (!selectedFood) return;
-  const qty = parseFloat(document.getElementById('quantity').value) || 100;
+  const qty = parseFloat(document.getElementById('quantity').value) || 1;
+  const unit = document.getElementById('qtyUnitSelect').value;
   const mealType = document.getElementById('mealType').value;
-  const ratio = qty / 100;
+  const grams = toGrams(qty, unit, selectedFood.serving_size || 100);
+  const ratio = grams / 100;
   const n = selectedFood.nutrition || {};
   const scaled = {};
   for (const k of ['calories','protein','carbs','sugar','fiber','fat','saturated_fat','monounsaturated_fat','polyunsaturated_fat','omega3','omega6']) {
@@ -345,7 +496,7 @@ async function addFood() {
       body: JSON.stringify({
         food_name: selectedFood.name,
         food_key: selectedFood.key,
-        quantity_g: qty,
+        quantity_g: Math.round(grams * 10) / 10,
         meal_type: mealType,
         nutrition: scaled
       })
@@ -372,6 +523,194 @@ async function deleteLog(id) {
 document.addEventListener('click', e => {
   if (!e.target.closest('.search-field')) dropdown.classList.remove('open');
 });
+
+// also update preview on quantity change
+document.getElementById('quantity').addEventListener('input', () => {
+  if (selectedFood) updatePreviewForUnit();
+});
+
+// ── Custom Dish Builder ───────────────────────────────────────────────────
+let dishRowCount = 0;
+
+function addDishIngredientRow(name = '') {
+  dishRowCount++;
+  const id = dishRowCount;
+  const row = document.createElement('div');
+  row.className = 'dish-ing-row';
+  row.id = `dish-row-${id}`;
+  row.innerHTML = `
+    <input type="text" class="input dish-ing-name" placeholder="Ingredient name" value="${name}"
+      oninput="dishIngSearch(this, ${id})"/>
+    <div class="dish-ing-search-wrap" id="dish-ing-dd-${id}"></div>
+    <input type="number" class="input dish-ing-qty" placeholder="Amount" min="0.1" step="0.5" value=""/>
+    <select class="input dish-ing-unit">
+      <option value="g">g</option>
+      <option value="kg">kg</option>
+      <option value="ml">ml</option>
+      <option value="l">L</option>
+      <option value="cup">cup</option>
+      <option value="tbsp">tbsp</option>
+      <option value="tsp">tsp</option>
+      <option value="oz">oz</option>
+      <option value="pcs" selected>pcs</option>
+      <option value="serving">serving</option>
+    </select>
+    <button class="btn-icon btn-delete" onclick="removeDishRow(${id})"><i data-lucide="trash-2"></i></button>`;
+  document.getElementById('dishIngredients').appendChild(row);
+  lucide.createIcons();
+}
+
+function removeDishRow(id) {
+  const el = document.getElementById(`dish-row-${id}`);
+  if (el) el.remove();
+}
+
+function quickAddDishIng(name) {
+  addDishIngredientRow(name);
+}
+
+let dishSearchTimers = {};
+async function dishIngSearch(input, id) {
+  clearTimeout(dishSearchTimers[id]);
+  const q = input.value.trim();
+  const dd = document.getElementById(`dish-ing-dd-${id}`);
+  if (q.length < 2) { dd.innerHTML = ''; dd.classList.remove('open'); return; }
+  dishSearchTimers[id] = setTimeout(async () => {
+    try {
+      const r = await fetch(`/api/food/search?q=${encodeURIComponent(q)}`);
+      const foods = await r.json();
+      if (!foods.length) { dd.innerHTML = ''; return; }
+      dd.innerHTML = foods.slice(0, 5).map(f =>
+        `<div class="dd-item" onclick="selectDishIng(${id}, '${f.name.replace(/'/g,"\\'")}')">
+          <div class="dd-name">${f.name}</div>
+          <div class="dd-macros"><span>${f.calories} kcal/100g</span><span>${f.protein}g P</span></div>
+        </div>`).join('');
+      dd.classList.add('open');
+    } catch(e) {}
+  }, 300);
+}
+
+function selectDishIng(id, name) {
+  const row = document.getElementById(`dish-row-${id}`);
+  row.querySelector('.dish-ing-name').value = name;
+  const dd = document.getElementById(`dish-ing-dd-${id}`);
+  dd.innerHTML = ''; dd.classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dish-ing-search-wrap') && !e.target.closest('.dish-ing-name')) {
+    document.querySelectorAll('.dish-ing-search-wrap').forEach(d => { d.innerHTML = ''; d.classList.remove('open'); });
+  }
+});
+
+async function calculateDishNutrition() {
+  const dishName = document.getElementById('dishName').value.trim() || 'Custom Dish';
+  const servings = parseFloat(document.getElementById('dishServings').value) || 1;
+  const cookingMethod = document.getElementById('dishCookingMethod').value.trim();
+
+  const rows = document.querySelectorAll('.dish-ing-row');
+  const ingredients = [];
+  rows.forEach(row => {
+    const name = row.querySelector('.dish-ing-name').value.trim();
+    const qty = parseFloat(row.querySelector('.dish-ing-qty').value);
+    const unit = row.querySelector('.dish-ing-unit').value;
+    if (name && qty > 0) ingredients.push({ name, quantity: qty, unit });
+  });
+
+  if (ingredients.length === 0) { showToast('Add at least one ingredient with a quantity', 'error'); return; }
+
+  const btn = document.getElementById('calcDishBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Calculating...';
+  lucide.createIcons();
+
+  try {
+    const r = await fetch('/api/dish/calculate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ dish_name: dishName, ingredients, cooking_method: cookingMethod, servings })
+    });
+    const data = await r.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+    calculatedDish = { dishName, servings, mealType: document.getElementById('dishMealType').value, data };
+    renderDishResult(data, dishName, servings);
+  } catch(e) {
+    showToast('Calculation failed. Check your API key.', 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="calculator"></i> Calculate Nutrition';
+  lucide.createIcons();
+}
+
+function renderDishResult(data, dishName, servings) {
+  const ps = data.per_serving || {};
+  document.getElementById('dishResultTitle').textContent =
+    `${dishName} — per serving (${servings} serving${servings > 1 ? 's' : ''})`;
+
+  document.getElementById('dishMacroGrid').innerHTML = `
+    <div class="dish-macro-card"><div class="dish-macro-val">${Math.round(ps.calories||0)}</div><div class="dish-macro-lbl">kcal</div></div>
+    <div class="dish-macro-card"><div class="dish-macro-val">${(ps.protein||0).toFixed(1)}g</div><div class="dish-macro-lbl">Protein</div></div>
+    <div class="dish-macro-card"><div class="dish-macro-val">${(ps.carbs||0).toFixed(1)}g</div><div class="dish-macro-lbl">Carbs</div></div>
+    <div class="dish-macro-card"><div class="dish-macro-val">${(ps.fat||0).toFixed(1)}g</div><div class="dish-macro-lbl">Fat</div></div>
+    <div class="dish-macro-card"><div class="dish-macro-val">${(ps.fiber||0).toFixed(1)}g</div><div class="dish-macro-lbl">Fiber</div></div>
+    <div class="dish-macro-card"><div class="dish-macro-val">${Math.round(ps.sodium||0)}mg</div><div class="dish-macro-lbl">Sodium</div></div>`;
+
+  const breakdown = data.ingredient_breakdown || [];
+  if (breakdown.length) {
+    document.getElementById('dishIngBreakdown').innerHTML = `
+      <div class="dish-breakdown-title">Ingredient Breakdown</div>
+      <div class="dish-breakdown-list">
+        ${breakdown.map(ing => `
+          <div class="dish-breakdown-row">
+            <span class="dish-breakdown-name">${ing.name}</span>
+            <span class="dish-breakdown-weight">${ing.quantity_g}g</span>
+            <span class="dish-breakdown-cal">${Math.round(ing.calories||0)} kcal</span>
+            <span class="dish-breakdown-prot">${(ing.protein||0).toFixed(1)}g P</span>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  const notes = [data.health_notes, data.cooking_impact, ...(data.improvement_tips||[])].filter(Boolean);
+  document.getElementById('dishHealthNotes').innerHTML = notes.length
+    ? `<div class="dish-notes">${notes.map(n => `<div class="dish-note">💡 ${n}</div>`).join('')}</div>`
+    : '';
+
+  document.getElementById('dishNutritionResult').style.display = 'block';
+}
+
+async function logCustomDish() {
+  if (!calculatedDish) return;
+  const { dishName, mealType, data } = calculatedDish;
+  const ps = data.per_serving || {};
+  const nutrition = {
+    calories: ps.calories || 0,
+    protein: ps.protein || 0,
+    carbs: ps.carbs || 0,
+    fat: ps.fat || 0,
+    fiber: ps.fiber || 0,
+    sugar: ps.sugar || 0,
+    saturated_fat: ps.saturated_fat || 0,
+    omega3: ps.omega3 || 0, omega6: 0,
+    vitamins: data.vitamins || {},
+    minerals: data.minerals || {},
+    amino_acids: data.amino_acids || {}
+  };
+  try {
+    const r = await fetch('/api/food/log', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        food_name: dishName,
+        food_key: 'custom_dish',
+        quantity_g: data.total_weight_g || 300,
+        meal_type: mealType,
+        nutrition
+      })
+    });
+    if ((await r.json()).success) {
+      showToast(`${dishName} logged!`);
+      setTimeout(() => location.reload(), 800);
+    }
+  } catch(e) { showToast('Failed to log dish', 'error'); }
+}
 
 // Barcode Scanner
 function openBarcodeModal() {

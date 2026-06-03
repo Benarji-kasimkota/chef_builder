@@ -652,6 +652,65 @@ Return JSON:
     return {"dosha": dosha, "recipes": [], "foods_to_favor": [], "foods_to_avoid": []}
 
 
+def calculate_dish_nutrition(dish_name: str, ingredients: list,
+                             cooking_method: str = "", servings: int = 1) -> dict:
+    """
+    Calculate full nutrition for a custom dish given all ingredients and quantities.
+    ingredients: list of {name, quantity, unit} dicts
+    """
+    ing_lines = "\n".join(
+        f"- {i['quantity']} {i['unit']} {i['name']}" for i in ingredients
+    )
+    prompt = f"""Calculate complete nutritional information for this custom dish:
+
+Dish: {dish_name}
+Servings: {servings}
+Cooking Method: {cooking_method or "Standard"}
+
+Ingredients:
+{ing_lines}
+
+Use standard USDA nutritional data. Account for cooking losses where relevant
+(e.g. water evaporation, fat absorption in frying).
+
+Return JSON:
+{{
+  "dish_name": "{dish_name}",
+  "servings": {servings},
+  "total_weight_g": 500,
+  "per_serving": {{
+    "calories": 450,
+    "protein": 25.0,
+    "carbs": 55.0,
+    "fat": 12.0,
+    "fiber": 6.0,
+    "sugar": 4.0,
+    "saturated_fat": 3.0,
+    "sodium": 400,
+    "omega3": 0.5
+  }},
+  "ingredient_breakdown": [
+    {{"name": "rice", "quantity_g": 200, "calories": 260, "protein": 5.0, "carbs": 57.0, "fat": 0.5}}
+  ],
+  "vitamins": {{"a": 120, "b1": 0.2, "b2": 0.1, "b3": 3.0, "b6": 0.3, "b12": 0.5, "c": 15, "d": 1.0, "e": 1.5, "k": 20, "b9": 30, "b5": 0.5}},
+  "minerals": {{"calcium": 80, "iron": 3.5, "magnesium": 45, "phosphorus": 200, "potassium": 500, "sodium": 400, "zinc": 2.0, "selenium": 15}},
+  "amino_acids": {{"tryptophan": 0.2, "threonine": 0.8, "isoleucine": 0.9, "leucine": 1.5, "lysine": 1.2, "methionine": 0.4, "phenylalanine": 0.8, "valine": 1.0, "histidine": 0.5}},
+  "health_notes": "Brief nutritional assessment of this dish",
+  "cooking_impact": "How cooking method affected nutrition",
+  "improvement_tips": ["Tip to make it healthier"]
+}}"""
+
+    text = _generate(prompt)
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except Exception:
+            pass
+    return {"dish_name": dish_name, "servings": servings, "per_serving": {},
+            "ingredient_breakdown": [], "health_notes": "Could not calculate nutrition"}
+
+
 def translate_ingredient(text: str) -> dict:
     """
     Translate any ingredient/recipe name in any language to English.
