@@ -634,17 +634,35 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 
 /* ── Responsive ── */
+/* ── Tablet / large phone (≤900px) ── */
 @media (max-width: 900px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
   .nav-toggle { display: flex; }
   .main-content { margin-left: 0; padding: 80px 16px 90px; }
+
+  /* Rings */
   .rings-stats-grid { grid-template-columns: 1fr; }
   .rings-svg { width: 130px; height: 130px; }
   .rings-wrapper { gap: 12px; }
   .legend-item strong { font-size: 13px; }
+
+  /* Grids */
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
   .two-col-grid { grid-template-columns: 1fr; }
+  .guided-grid { grid-template-columns: 1fr 1fr; }
+  .bmr-grid { grid-template-columns: repeat(2, 1fr); }
+  .recipe-sections { grid-template-columns: 1fr; }
+
+  /* Mindfulness */
+  .activity-picker { grid-template-columns: repeat(4, 1fr); }
+  .mind-controls { grid-template-columns: 1fr; }
+
+  /* Plan meals: wrap stats below */
+  .plan-meal-item { flex-wrap: wrap; gap: 8px; }
+  .plan-meal-stats { flex-direction: row; gap: 10px; width: 100%; justify-content: flex-end; }
+
+  /* Mobile bottom nav */
   .mobile-nav {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0;
     background: rgba(11,22,40,0.95); backdrop-filter: blur(20px);
@@ -652,22 +670,85 @@ body {
   }
   .mobile-nav-item {
     flex: 1; display: flex; flex-direction: column; align-items: center;
-    gap: 2px; padding: 6px; text-decoration: none; color: var(--text-muted);
-    font-size: 10px; transition: var(--transition);
+    gap: 2px; padding: 8px 4px; text-decoration: none; color: var(--text-muted);
+    font-size: 10px; transition: var(--transition); min-height: 50px; justify-content: center;
   }
   .mobile-nav-item.active { color: var(--accent-teal); }
-  .mobile-nav-item i { width: 20px; height: 20px; }
-  .guided-grid { grid-template-columns: 1fr 1fr; }
-  .activity-picker { grid-template-columns: repeat(4, 1fr); }
-  .mind-controls { grid-template-columns: 1fr; }
-  .bmr-grid { grid-template-columns: repeat(2, 1fr); }
-  .recipe-sections { grid-template-columns: 1fr; }
+  .mobile-nav-item i { width: 22px; height: 22px; }
 }
+
+/* ── Small phone (≤600px) ── */
 @media (max-width: 600px) {
+  /* Layout */
+  .page-title { font-size: 22px; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .cuisine-grid { grid-template-columns: repeat(2, 1fr); }
   .gen-controls { flex-direction: column; }
-  .page-header { flex-direction: column; align-items: flex-start; }
+
+  /* Food search — stack controls vertically */
+  .search-controls { flex-direction: column; align-items: stretch; }
+  .select-input { width: 100%; }
+  .qty-wrap { width: 100%; }
+  #addFoodBtn { width: 100%; justify-content: center; }
+
+  /* Nutrient bars — shorter label column */
+  .nutrient-item { grid-template-columns: 110px 1fr 32px; gap: 6px; }
+  .nutrient-name { font-size: 11px; }
+
+  /* Amino acids */
+  .amino-name { font-size: 11px; }
+
+  /* Forms — stack 2-col rows */
+  .form-row { grid-template-columns: 1fr; }
+
+  /* Water buttons — compact */
+  .water-buttons { gap: 4px; }
+  .water-btn { padding: 5px 8px; font-size: 11px; }
+
+  /* Activity picker — 2 columns on small phone */
+  .activity-picker { grid-template-columns: repeat(2, 1fr); }
+
+  /* BMR grid — 2 cols */
+  .bmr-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Grocery item reason: hide on tiny screen to avoid overflow */
+  .grocery-item-reason { display: none; }
+  .grocery-item { padding: 8px 10px; }
+
+  /* Chat categories — wrap & smaller */
+  .chat-categories { gap: 5px; }
+  .cat-chip { padding: 5px 10px; font-size: 11px; }
+
+  /* Onboarding */
+  .onboarding-card { padding: 24px 18px; }
+  .ob-title { font-size: 1.4rem; }
+  .ob-options { grid-template-columns: repeat(2, 1fr); }
+
+  /* Recipes grid single col */
+  .recipes-grid { grid-template-columns: 1fr; }
+
+  /* Prevent iOS auto-zoom on inputs (requires font-size ≥ 16px) */
+  .input, .chat-input, select { font-size: 16px; }
+}
+
+/* ── Extra small (≤400px) ── */
+@media (max-width: 400px) {
+  .main-content { padding: 72px 12px 90px; }
+  .page-title { font-size: 20px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-card { padding: 10px; }
+  .stat-value { font-size: 16px; }
+  .card { padding: 14px; }
+  .btn { padding: 8px 14px; font-size: 13px; }
+  .btn-lg { padding: 12px 20px; }
+  .rings-svg { width: 110px; height: 110px; }
+  .legend-item strong { font-size: 12px; }
+  .nutrient-item { grid-template-columns: 90px 1fr 28px; }
+  .activity-picker { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .ob-options { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ob-option { padding: 10px 8px; }
+  .mobile-nav-item { font-size: 9px; }
 }
 
 /* ── Light Mode ── */
