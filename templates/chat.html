@@ -88,6 +88,13 @@
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
+  /* Prevent page-level scroll on chat — messages scroll internally */
+  html, body { overflow: hidden; }
+  .main-content { overflow: hidden; padding-bottom: 0; min-height: unset; }
+  .chat-page { height: calc(100vh - 28px); } /* 28px = main-content padding-top */
+  @media (max-width: 900px) {
+    .chat-page { height: calc(100vh - 80px - 58px); } /* mobile: 80px top padding + 58px bottom nav */
+  }
   /* Rendered markdown inside AI bubbles */
   .msg-content h1,.msg-content h2,.msg-content h3 {
     font-family: var(--font-heading); font-weight: 700; margin: 10px 0 4px;
