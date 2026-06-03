@@ -23,6 +23,13 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chefbuilder-dev-secret-2024")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///chefbuilder.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# SQLite connection pool settings for concurrency
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 10,
+    "max_overflow": 20,
+    "pool_timeout": 30,
+    "connect_args": {"check_same_thread": False, "timeout": 20}
+}
 db.init_app(app)
 
 # Ensure instance folder exists (required on fresh deployments like Render)
@@ -30,6 +37,18 @@ os.makedirs(app.instance_path, exist_ok=True)
 
 with app.app_context():
     db.create_all()
+    # Enable WAL mode for SQLite — allows concurrent reads alongside writes
+    from sqlalchemy import text, event
+    from sqlalchemy.engine import Engine
+    import sqlite3
+    @event.listens_for(Engine, "connect")
+    def set_sqlite_pragma(dbapi_conn, connection_record):
+        if isinstance(dbapi_conn, sqlite3.Connection):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA cache_size=10000")
+            cursor.close()
     if not UserProfile.query.first():
         db.session.add(UserProfile())
         db.session.commit()
