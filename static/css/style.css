@@ -488,6 +488,163 @@ body {
 .recipe-meta span { display: flex; align-items: center; gap: 4px; }
 .recipe-meta i { width: 11px; height: 11px; }
 .recipe-nutrients { font-size: 10px; color: var(--accent-teal); background: rgba(0,212,170,0.08); border-radius: 4px; padding: 3px 7px; display: inline-block; }
+/* ── Recipe Section Tabs (top-level) ── */
+.recipe-section-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.rsec-tab {
+  display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary);
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  transition: all var(--transition);
+}
+.rsec-tab i { width: 14px; height: 14px; }
+.rsec-tab:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.2); }
+.rsec-tab.active { background: rgba(0,212,170,0.15); border-color: var(--accent-teal); color: var(--accent-teal); }
+.recipe-section { animation: fadeIn 0.2s ease; }
+
+/* ── From My Fridge ── */
+.fridge-input-area { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem; }
+.fridge-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 32px; }
+.fridge-tag {
+  display: flex; align-items: center; gap: 4px; background: rgba(0,212,170,0.12);
+  border: 1px solid rgba(0,212,170,0.3); border-radius: 100px;
+  padding: 4px 10px 4px 12px; font-size: 13px; font-weight: 600; color: var(--accent-teal);
+}
+.fridge-tag button {
+  background: none; border: none; cursor: pointer; color: var(--accent-teal);
+  font-size: 16px; line-height: 1; padding: 0; opacity: 0.7;
+}
+.fridge-tag button:hover { opacity: 1; }
+.fridge-input-row { display: flex; gap: 8px; }
+.fridge-quick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fridge-quick-btn {
+  padding: 4px 10px; border-radius: 100px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+  font-size: 12px; transition: var(--transition);
+}
+.fridge-quick-btn:hover { border-color: var(--accent-teal); color: var(--accent-teal); }
+
+.fridge-results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.fridge-recipe-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; cursor: pointer;
+  transition: all var(--transition); display: flex; flex-direction: column; gap: 10px;
+}
+.fridge-recipe-card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
+.fridge-recipe-top { display: flex; gap: 12px; align-items: flex-start; }
+.fridge-recipe-emoji { font-size: 2rem; flex-shrink: 0; }
+.fridge-recipe-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.fridge-recipe-meta { display: flex; gap: 5px; flex-wrap: wrap; }
+.fridge-recipe-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.fridge-recipe-ingredients { display: flex; flex-wrap: wrap; gap: 4px; }
+.fridge-ing-tag {
+  padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 600;
+}
+.fridge-ing-tag.has { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.fridge-ing-tag.need { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+.fridge-recipe-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+
+/* ── Variations ── */
+.variations-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+.variation-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px;
+  transition: var(--transition);
+}
+.variation-card:hover { border-color: var(--border-accent); transform: translateY(-1px); }
+.var-type-badge {
+  display: inline-block; background: rgba(124,58,237,0.12); border: 1px solid rgba(124,58,237,0.25);
+  color: #a78bfa; border-radius: 100px; padding: 2px 10px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; width: fit-content;
+}
+.var-name { font-weight: 700; font-size: 14px; }
+.var-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.var-changes { padding-left: 16px; margin: 0; }
+.var-changes li { font-size: 12px; color: var(--text-secondary); margin: 2px 0; }
+.var-swaps { display: flex; flex-wrap: wrap; gap: 5px; }
+.swap-tag {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 8px; font-size: 11px; color: var(--text-secondary);
+}
+.swap-tag del { color: var(--accent-red); text-decoration-color: var(--accent-red); }
+.var-footer { display: flex; gap: 5px; flex-wrap: wrap; }
+.var-nutrition { font-size: 11px; color: var(--accent-teal); background: rgba(0,212,170,0.08); border-radius: 4px; padding: 3px 8px; }
+.subs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 10px; }
+.sub-category { }
+.sub-cat-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.sub-item { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+.sub-orig { color: var(--text-secondary); }
+.sub-arrow { color: var(--accent-teal); font-weight: 700; }
+.sub-new { color: var(--text-primary); font-weight: 600; }
+.sub-note { color: var(--text-muted); font-size: 11px; }
+
+/* ── Ayurveda ── */
+.ayurveda-card { border: 1px solid rgba(34,197,94,0.2); background: linear-gradient(135deg, rgba(34,197,94,0.05), rgba(0,212,170,0.05)); }
+.dosha-selector { }
+.dosha-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.dosha-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; text-align: center;
+  cursor: pointer; transition: all var(--transition);
+}
+.dosha-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.2); }
+.dosha-card.selected { border-color: var(--accent-teal); background: rgba(0,212,170,0.1); }
+.dosha-emoji { font-size: 2rem; margin-bottom: 6px; }
+.dosha-name { font-weight: 800; font-size: 15px; margin-bottom: 4px; font-family: var(--font-heading); }
+.dosha-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 8px; }
+.dosha-tags { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
+.dosha-tags span { font-size: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 100px; padding: 1px 6px; color: var(--text-muted); }
+
+.ayur-info-card { }
+.ayur-rules { display: flex; flex-direction: column; gap: 8px; }
+.ayur-rule { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: rgba(239,68,68,0.06); border-left: 3px solid rgba(239,68,68,0.4); border-radius: 0 6px 6px 0; }
+.ayur-rule-combo { font-weight: 700; font-size: 13px; color: #fca5a5; }
+.ayur-rule-reason { font-size: 11px; color: var(--text-muted); }
+.ayur-categories { display: flex; flex-direction: column; gap: 8px; }
+.ayur-cat { padding: 10px 12px; border-radius: var(--radius-sm); }
+.ayur-cat strong { display: block; margin-bottom: 4px; font-size: 13px; }
+.ayur-cat p { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.ayur-cat.sattvic { background: rgba(34,197,94,0.08); border-left: 3px solid rgba(34,197,94,0.4); }
+.ayur-cat.rajasic { background: rgba(245,158,11,0.08); border-left: 3px solid rgba(245,158,11,0.4); }
+.ayur-cat.tamasic { background: rgba(100,100,100,0.08); border-left: 3px solid rgba(100,100,100,0.4); }
+.ayur-cat.tridoshic { background: rgba(0,212,170,0.08); border-left: 3px solid rgba(0,212,170,0.4); }
+
+/* Ayurveda check results */
+.ayur-result-header { display: flex; align-items: center; gap: 16px; padding: 14px; background: var(--bg-card); border-radius: var(--radius-sm); margin-bottom: 16px; }
+.ayur-score { width: 64px; height: 64px; border-radius: 50%; border: 3px solid; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; }
+.ayur-section { margin-bottom: 16px; }
+.ayur-section-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.ayur-warning { padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 8px; }
+.ayur-warning.high { background: rgba(239,68,68,0.08); border-left: 3px solid var(--accent-red); }
+.ayur-warning.medium { background: rgba(245,158,11,0.08); border-left: 3px solid var(--accent-amber); }
+.ayur-warn-combo { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+.ayur-warn-reason { font-size: 12px; color: var(--text-secondary); margin-bottom: 3px; }
+.ayur-warn-remedy { font-size: 12px; color: var(--accent-teal); }
+.classif-grid { display: flex; flex-direction: column; gap: 6px; }
+.classif-item { display: grid; grid-template-columns: 1fr auto 2fr; gap: 10px; align-items: center; padding: 6px 10px; background: var(--bg-card); border-radius: 6px; }
+.classif-ing { font-weight: 600; font-size: 13px; }
+.classif-type { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 100px; text-align: center; }
+.classif-type.sattvic { background: rgba(34,197,94,0.15); color: #4ade80; }
+.classif-type.rajasic { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.classif-type.tamasic { background: rgba(100,100,100,0.15); color: #9ca3af; }
+.classif-quality { font-size: 12px; color: var(--text-muted); }
+.dosha-impact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dosha-impact-card { background: var(--bg-card); border-radius: var(--radius-sm); padding: 12px; text-align: center; }
+.di-dosha { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.di-impact { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+.di-score { font-size: 20px; font-weight: 800; font-family: var(--font-heading); }
+.di-tip { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.prep-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.prep-item { background: var(--bg-card); border-radius: 6px; padding: 8px 12px; }
+.prep-item span { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+.prep-item strong { font-size: 13px; }
+.dosha-summary-card { background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(0,212,170,0.05)); border-color: rgba(34,197,94,0.2); }
+.dosha-foods-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ayur-recipe-card { border-color: rgba(34,197,94,0.2); }
+.ayur-recipe-card:hover { border-color: rgba(34,197,94,0.4); }
+
 /* Cuisine tabs */
 .cuisine-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .cuisine-tab {
@@ -743,6 +900,17 @@ body {
   /* Prevent iOS auto-zoom on inputs (requires font-size ≥ 16px) */
   .input, .chat-input, select { font-size: 16px; }
 }
+
+  /* Recipe studio tabs */
+  .recipe-section-tabs { gap: 6px; }
+  .rsec-tab { padding: 7px 12px; font-size: 12px; }
+  /* Dosha cards — 2 col on small screens */
+  .dosha-cards { grid-template-columns: repeat(2, 1fr); }
+  .dosha-impact-grid { grid-template-columns: repeat(3, 1fr); }
+  .fridge-results-grid { grid-template-columns: 1fr; }
+  .variations-grid { grid-template-columns: 1fr; }
+  .dosha-foods-grid { grid-template-columns: 1fr; }
+  .prep-grid { grid-template-columns: 1fr; }
 
 /* ── Extra small (≤400px) ── */
 @media (max-width: 400px) {

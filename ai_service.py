@@ -392,3 +392,231 @@ Generate all {days} days. Keep meals practical and delicious."""
     if match:
         return json.loads(match.group())
     return {"days": [], "plan_summary": "Could not generate plan", "daily_targets": {}}
+
+
+def generate_from_ingredients(ingredients: list, dietary_prefs: str = "",
+                               cuisine_hint: str = "") -> dict:
+    """
+    Given a list of available ingredients, generate every possible recipe
+    using different combinations, cooking methods, and cuisine styles.
+    Returns structured JSON with many recipe options.
+    """
+    ing_str = ", ".join(ingredients)
+    prompt = f"""I have these ingredients: {ing_str}
+{f"Dietary preference: {dietary_prefs}" if dietary_prefs else ""}
+{f"Cuisine preference: {cuisine_hint}" if cuisine_hint else ""}
+
+Generate as many DIFFERENT recipes as possible using various combinations of these ingredients.
+For each recipe consider ALL possible methods: raw, boiled, steamed, stir-fried, deep-fried,
+shallow-fried, roasted, grilled, baked, slow-cooked, pressure-cooked, fermented, pickled,
+blended/smoothie, salad, soup, stew, curry, stir-fry, sandwich, wrap, bowl, dessert, etc.
+
+Return JSON with AT LEAST 12 recipes in this format:
+{{
+  "total_combinations": 12,
+  "recipes": [
+    {{
+      "name": "Recipe Name",
+      "emoji": "🍽️",
+      "cuisine": "Indian/Italian/etc",
+      "method": "Stir-fry",
+      "time": "20 min",
+      "difficulty": "Easy",
+      "ingredients_used": ["ing1", "ing2"],
+      "missing_ingredients": ["optional: salt", "optional: oil"],
+      "description": "Brief description",
+      "key_steps": ["Step 1", "Step 2", "Step 3"],
+      "nutrition_highlight": "High protein, iron-rich etc",
+      "calories_estimate": 350
+    }}
+  ]
+}}
+
+Be creative — cover different cuisines, cooking methods, meal types (breakfast/lunch/dinner/snack).
+Include both simple 2-ingredient recipes and complex multi-ingredient ones."""
+
+    text = _generate(prompt)
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        return json.loads(match.group())
+    return {"total_combinations": 0, "recipes": []}
+
+
+def generate_recipe_variations(recipe_name: str, base_ingredients: str = "",
+                                dietary_prefs: str = "") -> dict:
+    """
+    Generate all possible variations of a single recipe — different methods,
+    ingredient substitutions, cuisine fusions, dietary adaptations, etc.
+    """
+    prompt = f"""Generate ALL possible variations and permutations of: "{recipe_name}"
+{f"Base ingredients: {base_ingredients}" if base_ingredients else ""}
+{f"Dietary preference: {dietary_prefs}" if dietary_prefs else ""}
+
+Cover EVERY dimension of variation:
+1. Cooking method variations (baked, fried, grilled, raw, steamed, air-fried, slow-cooked)
+2. Ingredient substitutions (vegan swap, protein swap, carb swap, dairy-free)
+3. Cuisine fusions (Indian-style, Thai-style, Mexican-style, Mediterranean-style)
+4. Dietary adaptations (keto, low-calorie, high-protein, gluten-free, vegan, Ayurvedic/sattvic)
+5. Serving style variations (as a bowl, wrap, soup, salad, sandwich)
+6. Spice level variations (mild, medium, spicy, extra spicy)
+
+Return JSON with all variations:
+{{
+  "original": "{recipe_name}",
+  "total_variations": 10,
+  "variations": [
+    {{
+      "name": "Variation name",
+      "emoji": "🍽️",
+      "type": "Cooking Method / Ingredient Sub / Cuisine Fusion / Dietary / Serving Style",
+      "description": "What makes this variation unique",
+      "key_changes": ["Change 1", "Change 2"],
+      "ingredient_swaps": [{{"original": "chicken", "substitute": "tofu", "reason": "vegan"}}],
+      "nutrition_impact": "Lower fat, higher fiber etc",
+      "time": "25 min",
+      "difficulty": "Medium",
+      "best_for": "Weight loss / Muscle gain / Vegan / etc"
+    }}
+  ],
+  "substitution_guide": {{
+    "proteins": [{{"original": "x", "sub": "y", "ratio": "1:1", "note": "..."}}],
+    "carbs": [],
+    "fats": [],
+    "dairy": [],
+    "eggs": []
+  }}
+}}"""
+
+    text = _generate(prompt)
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        return json.loads(match.group())
+    return {"original": recipe_name, "total_variations": 0, "variations": []}
+
+
+def check_ayurvedic_compatibility(ingredients: list, dosha: str = "") -> dict:
+    """
+    Apply Ayurvedic food science:
+    - Nishidda Aahar: prohibited/incompatible food combinations
+    - Shuddha Aahar: pure/sattvic food classification
+    - Viruddhahara: opposing quality combinations
+    - Dosha-specific guidance (Vata/Pitta/Kapha)
+    """
+    ing_str = ", ".join(ingredients)
+    prompt = f"""Analyze these ingredients using complete Ayurvedic food science:
+Ingredients: {ing_str}
+{f"Dosha: {dosha}" if dosha else ""}
+
+Perform a FULL Ayurvedic analysis covering:
+
+1. NISHIDDA AAHAR (Prohibited Combinations): Check for any forbidden food pairings
+   (e.g., milk+fish, milk+salt, fruit+dairy, honey+ghee equal parts, hot honey,
+   banana+milk, yogurt at night, fish+dairy, radish+milk, etc.)
+
+2. VIRUDDHAHARA (Incompatible Qualities): Foods with opposing qualities that create Ama (toxins)
+   (e.g., hot+cold, heavy+light, oily+dry combinations)
+
+3. SHUDDHA AAHAR classification: Rate each ingredient as:
+   - Sattvic (pure, promotes clarity): fresh fruits, veg, whole grains, ghee, honey
+   - Rajasic (stimulating, passionate): spicy, salty, sour, coffee, onion, garlic
+   - Tamasic (dull, heavy): stale, processed, meat, alcohol, leftovers
+
+4. DOSHA IMPACT (if dosha provided or analyze all three):
+   - Vata (air+space): cooling, drying foods aggravate; warm, moist, grounding balance
+   - Pitta (fire+water): spicy, sour, salty aggravate; cool, sweet, bitter balance
+   - Kapha (earth+water): heavy, sweet, oily aggravate; light, spicy, dry balance
+
+5. OPTIMAL EATING RULES from this list:
+   - Best eating time for these foods
+   - How to prepare to maximize digestive fire (Agni)
+   - Which spices to add for better digestion (digestive spices)
+
+Return JSON:
+{{
+  "overall_compatibility": "Compatible / Mildly Incompatible / Incompatible",
+  "ayurvedic_score": 8.5,
+  "nishidda_warnings": [
+    {{
+      "combination": "milk + fish",
+      "severity": "high",
+      "reason": "Creates Ama (toxins), opposite qualities",
+      "ayurvedic_text": "Reference to classical text if applicable",
+      "remedy": "Eat separately with 2+ hour gap"
+    }}
+  ],
+  "viruddhahara_flags": [
+    {{
+      "ingredients": ["hot food", "cold water"],
+      "issue": "Opposing temperatures disturb Agni",
+      "remedy": "Drink warm water instead"
+    }}
+  ],
+  "shuddha_classification": [
+    {{"ingredient": "ghee", "type": "Sattvic", "quality": "Pure, nourishing, promotes Ojas"}}
+  ],
+  "dosha_analysis": {{
+    "vata": {{"impact": "Balancing/Aggravating", "score": 7, "reason": "...", "tip": "..."}},
+    "pitta": {{"impact": "Balancing/Aggravating", "score": 6, "reason": "...", "tip": "..."}},
+    "kapha": {{"impact": "Balancing/Aggravating", "score": 8, "reason": "...", "tip": "..."}}
+  }},
+  "optimal_preparation": {{
+    "best_time": "Morning / Afternoon / Evening",
+    "cooking_method": "Best Ayurvedic cooking method",
+    "spices_to_add": ["turmeric", "cumin", "ginger"],
+    "spices_to_avoid": ["chili", "pepper"],
+    "eating_tips": ["Eat mindfully", "Avoid overeating"]
+  }},
+  "ayurvedic_recipe_suggestion": "A sattvic/dosha-balancing recipe using safe combinations from these ingredients"
+}}"""
+
+    text = _generate(prompt)
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        return json.loads(match.group())
+    return {"overall_compatibility": "Unknown", "nishidda_warnings": [],
+            "viruddhahara_flags": [], "shuddha_classification": [],
+            "dosha_analysis": {}, "optimal_preparation": {}}
+
+
+def get_dosha_recipes(dosha: str, dietary_pref: str = "", season: str = "") -> dict:
+    """Generate recipes specifically balanced for a given Ayurvedic dosha."""
+    prompt = f"""Create 6 Ayurvedic recipes specifically balanced for {dosha} dosha.
+{f"Dietary preference: {dietary_pref}" if dietary_pref else ""}
+{f"Season: {season}" if season else ""}
+
+Each recipe must:
+- Follow Shuddha Aahar (pure food) principles
+- Avoid Nishidda Aahar (prohibited combinations)
+- Use ingredients that specifically balance {dosha} dosha
+- Include Tridoshic spices where possible
+- Follow proper food combining rules
+
+Return JSON:
+{{
+  "dosha": "{dosha}",
+  "dosha_description": "Brief description of {dosha} dosha and its characteristics",
+  "foods_to_favor": ["list of foods that balance this dosha"],
+  "foods_to_avoid": ["list of foods that aggravate this dosha"],
+  "recipes": [
+    {{
+      "name": "Recipe Name",
+      "emoji": "🌿",
+      "meal_type": "Breakfast/Lunch/Dinner/Snack",
+      "dosha_effect": "Balancing / Tridoshic",
+      "key_ayurvedic_ingredients": ["turmeric", "ginger"],
+      "description": "Why this recipe balances {dosha}",
+      "ingredients": ["200ml milk", "1 tsp turmeric"],
+      "steps": ["Step 1", "Step 2"],
+      "time": "15 min",
+      "best_time_to_eat": "Morning with sunrise / Noon / Evening",
+      "nutrition_per_serving": {{"calories": 300, "protein": 12}},
+      "ayurvedic_benefit": "Specific benefit for {dosha} types"
+    }}
+  ]
+}}"""
+
+    text = _generate(prompt)
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        return json.loads(match.group())
+    return {"dosha": dosha, "recipes": [], "foods_to_favor": [], "foods_to_avoid": []}

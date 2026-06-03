@@ -788,6 +788,77 @@ def generate_meal_plan():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/recipes/from-ingredients", methods=["POST"])
+def recipes_from_ingredients():
+    data = request.json or {}
+    ingredients = data.get("ingredients", [])
+    if isinstance(ingredients, str):
+        ingredients = [i.strip() for i in ingredients.split(",") if i.strip()]
+    if not ingredients:
+        return jsonify({"error": "No ingredients provided"}), 400
+    try:
+        result = ai_service.generate_from_ingredients(
+            ingredients=ingredients,
+            dietary_prefs=data.get("dietary_prefs", ""),
+            cuisine_hint=data.get("cuisine_hint", "")
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/recipes/variations", methods=["POST"])
+def recipe_variations():
+    data = request.json or {}
+    recipe_name = data.get("recipe_name", "").strip()
+    if not recipe_name:
+        return jsonify({"error": "No recipe name provided"}), 400
+    try:
+        result = ai_service.generate_recipe_variations(
+            recipe_name=recipe_name,
+            base_ingredients=data.get("base_ingredients", ""),
+            dietary_prefs=data.get("dietary_prefs", "")
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/recipes/ayurvedic-check", methods=["POST"])
+def ayurvedic_check():
+    data = request.json or {}
+    ingredients = data.get("ingredients", [])
+    if isinstance(ingredients, str):
+        ingredients = [i.strip() for i in ingredients.split(",") if i.strip()]
+    if not ingredients:
+        return jsonify({"error": "No ingredients provided"}), 400
+    try:
+        result = ai_service.check_ayurvedic_compatibility(
+            ingredients=ingredients,
+            dosha=data.get("dosha", "")
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/recipes/dosha", methods=["POST"])
+def dosha_recipes():
+    data = request.json or {}
+    dosha = data.get("dosha", "").strip()
+    if dosha not in ("vata", "pitta", "kapha", "tridoshic"):
+        return jsonify({"error": "Invalid dosha. Use: vata, pitta, kapha, tridoshic"}), 400
+    try:
+        result = ai_service.get_dosha_recipes(
+            dosha=dosha,
+            dietary_pref=data.get("dietary_pref", ""),
+            season=data.get("season", "")
+        )
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # ──────────────────────────────────────────────
 #  API — MINDFULNESS
 # ──────────────────────────────────────────────

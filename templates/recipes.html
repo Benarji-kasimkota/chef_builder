@@ -8,173 +8,435 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <p class="page-subtitle">AI-powered suggestions based on your nutrition</p>
+    <p class="page-subtitle">AI-powered · World cuisines · Ayurvedic wisdom</p>
     <h1 class="page-title">Recipe <span class="accent">Studio</span></h1>
   </div>
 </div>
 
-<!-- Recipe Generator -->
-<div class="card recipe-gen-card">
-  <div class="gen-header">
-    <div class="gen-icon">🤖</div>
-    <div>
-      <h3>AI Recipe Generator</h3>
-      <p>Get personalized recipes based on your nutritional gaps and preferences</p>
+<!-- ══════════════════════════════════════════
+     SECTION TABS
+══════════════════════════════════════════ -->
+<div class="recipe-section-tabs">
+  <button class="rsec-tab active" onclick="showSection('ai-gen', this)">
+    <i data-lucide="sparkles"></i> AI Generator
+  </button>
+  <button class="rsec-tab" onclick="showSection('fridge', this)">
+    <i data-lucide="refrigerator"></i> From My Fridge
+  </button>
+  <button class="rsec-tab" onclick="showSection('variations', this)">
+    <i data-lucide="shuffle"></i> Variations
+  </button>
+  <button class="rsec-tab" onclick="showSection('world', this)">
+    <i data-lucide="globe"></i> World Cuisines
+  </button>
+  <button class="rsec-tab" onclick="showSection('ayurveda', this)">
+    <i data-lucide="leaf"></i> Ayurveda
+  </button>
+  <button class="rsec-tab" onclick="showSection('analyzer', this)">
+    <i data-lucide="scan-search"></i> Analyzer
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     1. AI RECIPE GENERATOR
+══════════════════════════════════════════ -->
+<div class="recipe-section active" id="sec-ai-gen">
+  <div class="card recipe-gen-card">
+    <div class="gen-header">
+      <div class="gen-icon">🤖</div>
+      <div>
+        <h3>AI Recipe Generator</h3>
+        <p>Personalized recipes based on your nutritional gaps and preferences</p>
+      </div>
+    </div>
+    <div class="gen-controls">
+      <input type="text" id="recipePrefs" class="input" placeholder="Optional: cuisine, ingredients, dietary needs..."/>
+      <button class="btn btn-primary btn-lg" onclick="generateRecipes()" id="genBtn">
+        <i data-lucide="sparkles"></i> Generate Recipes
+      </button>
     </div>
   </div>
-  <div class="gen-controls">
-    <input type="text" id="recipePrefs" class="input" placeholder="Optional: cuisine, ingredients you have, dietary needs..."/>
-    <button class="btn btn-primary btn-lg" onclick="generateRecipes()" id="genBtn">
-      <i data-lucide="sparkles"></i> Generate Recipes
+  <div id="recipesContainer"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     2. FROM MY FRIDGE
+══════════════════════════════════════════ -->
+<div class="recipe-section" id="sec-fridge" style="display:none">
+  <div class="card">
+    <div class="gen-header">
+      <div class="gen-icon">🥕</div>
+      <div>
+        <h3>What Can I Make?</h3>
+        <p>Enter what you have — get every possible recipe, all permutations of cooking methods and combinations</p>
+      </div>
+    </div>
+
+    <div class="fridge-input-area">
+      <div class="fridge-tags" id="fridgeTags"></div>
+      <div class="fridge-input-row">
+        <input type="text" id="fridgeInput" class="input" placeholder="Type an ingredient and press Enter or comma..."
+          onkeydown="handleFridgeKey(event)"/>
+        <button class="btn btn-ghost btn-sm" onclick="clearFridge()">Clear</button>
+      </div>
+      <div class="fridge-quick">
+        <span class="text-muted" style="font-size:12px">Quick add:</span>
+        {% for item in ['Rice','Chicken','Eggs','Onion','Tomato','Spinach','Lentils','Milk','Garlic','Ginger','Potato','Paneer'] %}
+        <button class="fridge-quick-btn" onclick="addFridgeItem('{{ item }}')">{{ item }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-row" style="margin-top:1rem">
+      <div class="form-group">
+        <label class="form-label">Dietary Preference</label>
+        <select id="fridgeDiet" class="input select-input">
+          <option value="">Any</option>
+          <option value="vegetarian">Vegetarian</option>
+          <option value="vegan">Vegan</option>
+          <option value="keto">Keto</option>
+          <option value="high-protein">High Protein</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cuisine Style (optional)</label>
+        <input type="text" id="fridgeCuisine" class="input" placeholder="e.g. Indian, Italian, any"/>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="generateFromFridge()" id="fridgeBtn">
+      <i data-lucide="wand-2"></i> Find All Possible Recipes
     </button>
   </div>
+
+  <div id="fridgeResults"></div>
 </div>
 
-<!-- Generated Recipes -->
-<div id="recipesContainer"></div>
-
-<!-- World Cuisines -->
-<div class="card" style="margin-bottom:1.5rem">
-  <div class="card-header">
-    <h3 class="card-title"><i data-lucide="globe"></i> Explore World Cuisines</h3>
-    <span class="text-muted" style="font-size:12px">Click any cuisine for AI-crafted authentic recipes</span>
-  </div>
-
-  <!-- Region tabs -->
-  <div class="cuisine-tabs" id="cuisineTabs">
-    <button class="cuisine-tab active" onclick="showRegion('asian',this)">🌏 Asian</button>
-    <button class="cuisine-tab" onclick="showRegion('european',this)">🌍 European</button>
-    <button class="cuisine-tab" onclick="showRegion('mideast',this)">🕌 Middle East & Africa</button>
-    <button class="cuisine-tab" onclick="showRegion('americas',this)">🌎 Americas</button>
-  </div>
-
-  <!-- Asian -->
-  <div class="cuisine-region active" id="region-asian">
-    <div class="cuisine-grid">
-      {% set asian = [
-        ('🇯🇵','Japanese','Umami-rich, longevity foods, omega-3'),
-        ('🇨🇳','Chinese','Stir-fry, balanced macros, diverse veg'),
-        ('🇰🇷','Korean','Fermented, gut-friendly, high-fiber'),
-        ('🇹🇭','Thai','Herbs, healthy fats, anti-inflammatory'),
-        ('🇻🇳','Vietnamese','Fresh herbs, lean proteins, low-fat'),
-        ('🇮🇳','Indian','Spices, anti-inflammatory, plant-rich'),
-        ('🇮🇩','Indonesian','Coconut, spices, diverse nutrients'),
-        ('🇲🇾','Malaysian','Bold spices, rich in vitamins'),
-        ('🇵🇭','Filipino','Hearty, vinegar-based, protein-rich'),
-        ('🇵🇰','Pakistani','Aromatic, high-protein, complex spices'),
-        ('🇱🇰','Sri Lankan','Coconut curries, rice, tropical fruits'),
-        ('🇳🇵','Nepali','Dal, whole grains, mountain herbs'),
-      ] %}
-      {% for flag, name, desc in asian %}
-      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
-        <div class="cuisine-flag">{{ flag }}</div>
-        <div class="cuisine-name">{{ name }}</div>
-        <div class="cuisine-desc">{{ desc }}</div>
+<!-- ══════════════════════════════════════════
+     3. RECIPE VARIATIONS
+══════════════════════════════════════════ -->
+<div class="recipe-section" id="sec-variations" style="display:none">
+  <div class="card">
+    <div class="gen-header">
+      <div class="gen-icon">🔄</div>
+      <div>
+        <h3>All Ways to Make a Dish</h3>
+        <p>Every cooking method, ingredient substitution, cuisine fusion, and dietary adaptation for any recipe</p>
       </div>
-      {% endfor %}
     </div>
-  </div>
-
-  <!-- European & Mediterranean -->
-  <div class="cuisine-region" id="region-european" style="display:none">
-    <div class="cuisine-grid">
-      {% set european = [
-        ('🇮🇹','Italian','Mediterranean, heart-healthy, olive oil'),
-        ('🇫🇷','French','Classic techniques, rich & balanced'),
-        ('🇬🇷','Greek','Mediterranean diet, longevity foods'),
-        ('🇪🇸','Spanish','Tapas culture, olive oil, seafood'),
-        ('🇹🇷','Turkish','Diverse veg, lean meats, legumes'),
-        ('🇩🇪','German','Hearty, protein-rich, whole grains'),
-        ('🇵🇹','Portuguese','Seafood-rich, olive oil, vegetables'),
-        ('🇷🇺','Russian','Root veg, fermented, warming soups'),
-        ('🇵🇱','Polish','Hearty, cabbage, protein-dense'),
-        ('🇸🇪','Swedish','Clean, balanced, high omega-3'),
-        ('🇬🇧','British','Classic comfort, root vegetables'),
-        ('🇬🇪','Georgian','Walnuts, pomegranate, herb-rich'),
-      ] %}
-      {% for flag, name, desc in european %}
-      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
-        <div class="cuisine-flag">{{ flag }}</div>
-        <div class="cuisine-name">{{ name }}</div>
-        <div class="cuisine-desc">{{ desc }}</div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Recipe Name</label>
+        <input type="text" id="varRecipeName" class="input" placeholder="e.g. Khichdi, Pasta, Chicken Curry, Omelette..."/>
       </div>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- Middle East & Africa -->
-  <div class="cuisine-region" id="region-mideast" style="display:none">
-    <div class="cuisine-grid">
-      {% set mideast = [
-        ('🇲🇦','Moroccan','Ancient spices, tagines, diverse nutrients'),
-        ('🇱🇧','Lebanese','Mezze, legumes, heart-healthy'),
-        ('🇮🇱','Israeli','Fresh salads, hummus, diverse veg'),
-        ('🇸🇦','Saudi','Rice, lamb, dates, aromatic spices'),
-        ('🇪🇬','Egyptian','Legumes, ful medames, iron-rich'),
-        ('🇮🇷','Persian','Herbs, pomegranate, saffron, balanced'),
-        ('🇪🇹','Ethiopian','Injera, teff, plant-rich, high-fiber'),
-        ('🇳🇬','Nigerian','Stews, plantain, protein-dense'),
-        ('🇬🇭','Ghanaian','Fufu, groundnuts, antioxidant-rich'),
-        ('🇸🇳','Senegalese','Thieboudienne, peanuts, diverse'),
-        ('🇰🇪','Kenyan','Ugali, sukuma wiki, iron-rich'),
-        ('🇿🇦','South African','Braai, bobotie, diverse proteins'),
-      ] %}
-      {% for flag, name, desc in mideast %}
-      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
-        <div class="cuisine-flag">{{ flag }}</div>
-        <div class="cuisine-name">{{ name }}</div>
-        <div class="cuisine-desc">{{ desc }}</div>
+      <div class="form-group">
+        <label class="form-label">Dietary Preference</label>
+        <select id="varDiet" class="input select-input">
+          <option value="">Any</option>
+          <option value="vegetarian">Vegetarian</option>
+          <option value="vegan">Vegan</option>
+          <option value="keto">Keto</option>
+          <option value="high-protein">High Protein</option>
+        </select>
       </div>
-      {% endfor %}
     </div>
-  </div>
-
-  <!-- Americas -->
-  <div class="cuisine-region" id="region-americas" style="display:none">
-    <div class="cuisine-grid">
-      {% set americas = [
-        ('🇲🇽','Mexican','Legumes, fresh produce, bold flavors'),
-        ('🇵🇪','Peruvian','Superfoods, quinoa, ceviche'),
-        ('🇧🇷','Brazilian','Diverse, tropical fruits, high-protein'),
-        ('🇦🇷','Argentine','Grass-fed beef, chimichurri, iron-rich'),
-        ('🇨🇴','Colombian','Arepas, tropical fruits, diverse veg'),
-        ('🇯🇲','Jamaican','Jerk spices, tropical, antioxidants'),
-        ('🇨🇺','Cuban','Rice & beans, root veg, citrus'),
-        ('🇺🇸','American','Diverse regional cuisines, comfort food'),
-        ('🇨🇦','Canadian','Maple, game meats, diverse influences'),
-        ('🇨🇱','Chilean','Seafood, avocado, fresh produce'),
-        ('🇻🇪','Venezuelan','Arepas, pabellón, tropical flavors'),
-        ('🇧🇴','Bolivian','Quinoa native, high-altitude nutrition'),
-      ] %}
-      {% for flag, name, desc in americas %}
-      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
-        <div class="cuisine-flag">{{ flag }}</div>
-        <div class="cuisine-name">{{ name }}</div>
-        <div class="cuisine-desc">{{ desc }}</div>
-      </div>
-      {% endfor %}
+    <div class="form-group">
+      <label class="form-label">Base Ingredients (optional)</label>
+      <input type="text" id="varIngredients" class="input" placeholder="e.g. chicken, rice, tomatoes"/>
     </div>
-  </div>
-</div>
-
-<!-- Meal Analyzer -->
-<div class="card meal-analyzer-card">
-  <h3 class="card-title"><i data-lucide="scan-search"></i> Meal Analyzer & Optimizer</h3>
-  <p class="card-desc">Paste any recipe and AI will analyze its nutrition and suggest improvements</p>
-  <div class="analyzer-form">
-    <input type="text" id="mealName" class="input" placeholder="Meal name (e.g. Pasta Bolognese)"/>
-    <textarea id="mealIngredients" class="input textarea" rows="3" placeholder="Ingredients (e.g. 200g pasta, 100g ground beef, tomato sauce, cheese...)"></textarea>
-    <button class="btn btn-secondary" onclick="analyzeMeal()" id="analyzeBtn">
-      <i data-lucide="wand-2"></i> Analyze & Optimize
+    <button class="btn btn-primary" onclick="generateVariations()" id="varBtn">
+      <i data-lucide="shuffle"></i> Generate All Variations
     </button>
   </div>
-  <div class="analysis-result" id="analysisResult" style="display:none">
-    <h4>AI Analysis</h4>
-    <div id="analysisText" class="prose"></div>
+
+  <div id="variationsResults"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     4. WORLD CUISINES
+══════════════════════════════════════════ -->
+<div class="recipe-section" id="sec-world" style="display:none">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title"><i data-lucide="globe"></i> 48 World Cuisines</h3>
+      <span class="text-muted" style="font-size:12px">Click any cuisine for AI-crafted authentic recipes</span>
+    </div>
+    <div class="cuisine-tabs">
+      <button class="cuisine-tab active" onclick="showRegion('asian',this)">🌏 Asian</button>
+      <button class="cuisine-tab" onclick="showRegion('european',this)">🌍 European</button>
+      <button class="cuisine-tab" onclick="showRegion('mideast',this)">🕌 Middle East & Africa</button>
+      <button class="cuisine-tab" onclick="showRegion('americas',this)">🌎 Americas</button>
+    </div>
+
+    <div class="cuisine-region active" id="region-asian">
+      <div class="cuisine-grid">
+        {% for flag, name, desc in [
+          ('🇯🇵','Japanese','Umami-rich, longevity foods, omega-3'),
+          ('🇨🇳','Chinese','Stir-fry, balanced macros, diverse veg'),
+          ('🇰🇷','Korean','Fermented, gut-friendly, high-fiber'),
+          ('🇹🇭','Thai','Herbs, healthy fats, anti-inflammatory'),
+          ('🇻🇳','Vietnamese','Fresh herbs, lean proteins, low-fat'),
+          ('🇮🇳','Indian','Spices, anti-inflammatory, plant-rich'),
+          ('🇮🇩','Indonesian','Coconut, spices, diverse nutrients'),
+          ('🇲🇾','Malaysian','Bold spices, rich in vitamins'),
+          ('🇵🇭','Filipino','Hearty, vinegar-based, protein-rich'),
+          ('🇵🇰','Pakistani','Aromatic, high-protein, complex spices'),
+          ('🇱🇰','Sri Lankan','Coconut curries, rice, tropical fruits'),
+          ('🇳🇵','Nepali','Dal, whole grains, mountain herbs'),
+        ] %}
+        <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+          <div class="cuisine-flag">{{ flag }}</div>
+          <div class="cuisine-name">{{ name }}</div>
+          <div class="cuisine-desc">{{ desc }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="cuisine-region" id="region-european" style="display:none">
+      <div class="cuisine-grid">
+        {% for flag, name, desc in [
+          ('🇮🇹','Italian','Mediterranean, heart-healthy, olive oil'),
+          ('🇫🇷','French','Classic techniques, rich & balanced'),
+          ('🇬🇷','Greek','Mediterranean diet, longevity foods'),
+          ('🇪🇸','Spanish','Tapas culture, olive oil, seafood'),
+          ('🇹🇷','Turkish','Diverse veg, lean meats, legumes'),
+          ('🇩🇪','German','Hearty, protein-rich, whole grains'),
+          ('🇵🇹','Portuguese','Seafood-rich, olive oil, vegetables'),
+          ('🇷🇺','Russian','Root veg, fermented, warming soups'),
+          ('🇵🇱','Polish','Hearty, cabbage, protein-dense'),
+          ('🇸🇪','Swedish','Clean, balanced, high omega-3'),
+          ('🇬🇧','British','Classic comfort, root vegetables'),
+          ('🇬🇪','Georgian','Walnuts, pomegranate, herb-rich'),
+        ] %}
+        <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+          <div class="cuisine-flag">{{ flag }}</div>
+          <div class="cuisine-name">{{ name }}</div>
+          <div class="cuisine-desc">{{ desc }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="cuisine-region" id="region-mideast" style="display:none">
+      <div class="cuisine-grid">
+        {% for flag, name, desc in [
+          ('🇲🇦','Moroccan','Ancient spices, tagines, diverse nutrients'),
+          ('🇱🇧','Lebanese','Mezze, legumes, heart-healthy'),
+          ('🇮🇱','Israeli','Fresh salads, hummus, diverse veg'),
+          ('🇸🇦','Saudi','Rice, lamb, dates, aromatic spices'),
+          ('🇪🇬','Egyptian','Legumes, ful medames, iron-rich'),
+          ('🇮🇷','Persian','Herbs, pomegranate, saffron, balanced'),
+          ('🇪🇹','Ethiopian','Injera, teff, plant-rich, high-fiber'),
+          ('🇳🇬','Nigerian','Stews, plantain, protein-dense'),
+          ('🇬🇭','Ghanaian','Fufu, groundnuts, antioxidant-rich'),
+          ('🇸🇳','Senegalese','Thieboudienne, peanuts, diverse'),
+          ('🇰🇪','Kenyan','Ugali, sukuma wiki, iron-rich'),
+          ('🇿🇦','South African','Braai, bobotie, diverse proteins'),
+        ] %}
+        <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+          <div class="cuisine-flag">{{ flag }}</div>
+          <div class="cuisine-name">{{ name }}</div>
+          <div class="cuisine-desc">{{ desc }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="cuisine-region" id="region-americas" style="display:none">
+      <div class="cuisine-grid">
+        {% for flag, name, desc in [
+          ('🇲🇽','Mexican','Legumes, fresh produce, bold flavors'),
+          ('🇵🇪','Peruvian','Superfoods, quinoa, ceviche'),
+          ('🇧🇷','Brazilian','Diverse, tropical fruits, high-protein'),
+          ('🇦🇷','Argentine','Grass-fed beef, chimichurri, iron-rich'),
+          ('🇨🇴','Colombian','Arepas, tropical fruits, diverse veg'),
+          ('🇯🇲','Jamaican','Jerk spices, tropical, antioxidants'),
+          ('🇨🇺','Cuban','Rice & beans, root veg, citrus'),
+          ('🇺🇸','American','Diverse regional cuisines, comfort food'),
+          ('🇨🇦','Canadian','Maple, game meats, diverse influences'),
+          ('🇨🇱','Chilean','Seafood, avocado, fresh produce'),
+          ('🇻🇪','Venezuelan','Arepas, pabellón, tropical flavors'),
+          ('🇧🇴','Bolivian','Quinoa native, high-altitude nutrition'),
+        ] %}
+        <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+          <div class="cuisine-flag">{{ flag }}</div>
+          <div class="cuisine-name">{{ name }}</div>
+          <div class="cuisine-desc">{{ desc }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div id="cuisineResults"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     5. AYURVEDA
+══════════════════════════════════════════ -->
+<div class="recipe-section" id="sec-ayurveda" style="display:none">
+
+  <!-- Dosha selector -->
+  <div class="card ayurveda-card">
+    <div class="gen-header">
+      <div class="gen-icon">🌿</div>
+      <div>
+        <h3>Ayurvedic Kitchen</h3>
+        <p>Shuddha Aahar · Nishidda Aahar · Viruddhahara · Dosha-balanced recipes</p>
+      </div>
+    </div>
+
+    <!-- Dosha quiz shortcut -->
+    <div class="dosha-selector">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Select your Dosha to get personalized recipes:</p>
+      <div class="dosha-cards">
+        <div class="dosha-card" onclick="selectDosha('vata',this)">
+          <div class="dosha-emoji">🌬️</div>
+          <div class="dosha-name">Vata</div>
+          <div class="dosha-desc">Air + Space · Creative, quick, light · Needs warm, grounding foods</div>
+          <div class="dosha-tags"><span>Warm</span><span>Moist</span><span>Grounding</span></div>
+        </div>
+        <div class="dosha-card" onclick="selectDosha('pitta',this)">
+          <div class="dosha-emoji">🔥</div>
+          <div class="dosha-name">Pitta</div>
+          <div class="dosha-desc">Fire + Water · Passionate, sharp, intense · Needs cooling foods</div>
+          <div class="dosha-tags"><span>Cool</span><span>Sweet</span><span>Bitter</span></div>
+        </div>
+        <div class="dosha-card" onclick="selectDosha('kapha',this)">
+          <div class="dosha-emoji">🌊</div>
+          <div class="dosha-name">Kapha</div>
+          <div class="dosha-desc">Earth + Water · Stable, calm, nurturing · Needs light, spicy foods</div>
+          <div class="dosha-tags"><span>Light</span><span>Spicy</span><span>Dry</span></div>
+        </div>
+        <div class="dosha-card" onclick="selectDosha('tridoshic',this)">
+          <div class="dosha-emoji">☯️</div>
+          <div class="dosha-name">Tridoshic</div>
+          <div class="dosha-desc">Balanced all three · Universal · Balancing for everyone</div>
+          <div class="dosha-tags"><span>Balanced</span><span>Sattvic</span><span>Pure</span></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:1rem;flex-wrap:wrap">
+        <select id="doshaSeasonSelect" class="input" style="width:auto">
+          <option value="">Any season</option>
+          <option value="spring">Spring</option>
+          <option value="summer">Summer</option>
+          <option value="monsoon">Monsoon</option>
+          <option value="autumn">Autumn</option>
+          <option value="winter">Winter</option>
+        </select>
+        <button class="btn btn-primary" onclick="getDoshaRecipes()" id="doshaBtn">
+          <i data-lucide="leaf"></i> Get Dosha Recipes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="doshaResults"></div>
+
+  <!-- Nishidda Aahar checker -->
+  <div class="card" style="margin-top:1.5rem">
+    <h3 class="card-title"><i data-lucide="shield-alert"></i> Nishidda Aahar Checker</h3>
+    <p class="card-desc">Enter your meal ingredients — AI will check for prohibited Ayurvedic combinations, Viruddhahara (incompatible qualities), and classify each ingredient as Sattvic / Rajasic / Tamasic</p>
+    <div class="form-group">
+      <label class="form-label">Ingredients in your meal (comma-separated)</label>
+      <input type="text" id="ayurIngredients" class="input"
+        placeholder="e.g. milk, fish, banana, honey, salt, lemon..."/>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <select id="ayurDosha" class="input" style="width:auto">
+        <option value="">Select dosha (optional)</option>
+        <option value="vata">Vata</option>
+        <option value="pitta">Pitta</option>
+        <option value="kapha">Kapha</option>
+      </select>
+      <button class="btn btn-secondary" onclick="checkAyurveda()" id="ayurBtn">
+        <i data-lucide="search"></i> Check Compatibility
+      </button>
+    </div>
+    <div id="ayurResults" style="margin-top:1rem"></div>
+  </div>
+
+  <!-- Ayurvedic knowledge cards -->
+  <div class="two-col-grid" style="margin-top:1.5rem">
+    <div class="card ayur-info-card">
+      <h3 class="card-title">🚫 Nishidda Aahar</h3>
+      <p class="card-desc" style="margin-bottom:12px">Classic Ayurvedic prohibited food combinations</p>
+      <div class="ayur-rules">
+        {% for combo, reason in [
+          ('Milk + Fish','Opposite qualities — creates Ama (toxins)'),
+          ('Milk + Salt','Blocks channels, vitiates blood'),
+          ('Milk + Sour fruits','Curdling in stomach disrupts digestion'),
+          ('Honey + Ghee (equal)','Toxic when mixed in equal proportions'),
+          ('Heated Honey','Honey above 40°C becomes toxic'),
+          ('Banana + Milk','Heavy, creates Ama, causes heaviness'),
+          ('Fruit with meals','Fruit ferments when eaten with other food'),
+          ('Cold water after hot food','Extinguishes digestive fire (Agni)'),
+          ('Fish + Dairy','Incompatible proteins, creates toxins'),
+          ('Radish + Milk','Incompatible, disturbs digestion'),
+        ] %}
+        <div class="ayur-rule">
+          <span class="ayur-rule-combo">{{ combo }}</span>
+          <span class="ayur-rule-reason">{{ reason }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card ayur-info-card">
+      <h3 class="card-title">✨ Shuddha Aahar</h3>
+      <p class="card-desc" style="margin-bottom:12px">Sattvic pure foods that promote clarity and health</p>
+      <div class="ayur-categories">
+        <div class="ayur-cat sattvic">
+          <strong>🌿 Sattvic (Pure)</strong>
+          <p>Fresh fruits, vegetables, whole grains, legumes, ghee, honey, pure dairy, nuts, seeds, mild spices</p>
+        </div>
+        <div class="ayur-cat rajasic">
+          <strong>🌶️ Rajasic (Stimulating)</strong>
+          <p>Onion, garlic, chili, coffee, tea, spicy food, salty food, sour food</p>
+        </div>
+        <div class="ayur-cat tamasic">
+          <strong>🌑 Tamasic (Heavy/Dull)</strong>
+          <p>Stale food, processed food, alcohol, red meat, leftovers older than 3 hours</p>
+        </div>
+        <div class="ayur-cat tridoshic" style="margin-top:8px">
+          <strong>☯️ Tridoshic Spices</strong>
+          <p>Turmeric, cumin, coriander, ginger, cardamom — balance all three doshas</p>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- Recipe Modal -->
+<!-- ══════════════════════════════════════════
+     6. MEAL ANALYZER
+══════════════════════════════════════════ -->
+<div class="recipe-section" id="sec-analyzer" style="display:none">
+  <div class="card meal-analyzer-card">
+    <div class="gen-header">
+      <div class="gen-icon">🔬</div>
+      <div>
+        <h3>Meal Analyzer & Optimizer</h3>
+        <p>Paste any recipe — AI analyzes nutrition and suggests improvements</p>
+      </div>
+    </div>
+    <div class="analyzer-form">
+      <input type="text" id="mealName" class="input" placeholder="Meal name (e.g. Pasta Bolognese, Dal Tadka)"/>
+      <textarea id="mealIngredients" class="input textarea" rows="4"
+        placeholder="Ingredients (e.g. 200g pasta, 100g ground beef, tomato sauce, cheese...)"></textarea>
+      <button class="btn btn-secondary" onclick="analyzeMeal()" id="analyzeBtn">
+        <i data-lucide="wand-2"></i> Analyze & Optimize
+      </button>
+    </div>
+    <div class="analysis-result" id="analysisResult" style="display:none">
+      <h4>AI Analysis</h4>
+      <div id="analysisText" class="prose"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     RECIPE MODAL
+══════════════════════════════════════════ -->
 <div class="modal-overlay" id="recipeModal" style="display:none" onclick="if(event.target===this)closeModal()">
   <div class="modal-card">
     <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
@@ -187,7 +449,20 @@
 <script>
 marked.setOptions({ breaks: true, gfm: true });
 
-// ── Region tabs ─────────────────────────────────────────────────────────
+// Pre-defined lookup maps (keeps Jinja2 template delimiters clean)
+const DOSHA_EMOJI = {'vata':'🌬️','pitta':'🔥','kapha':'🌊','tridoshic':'☯️'};
+const MEAL_EMOJI  = {'breakfast':'🌅','lunch':'☀️','dinner':'🌙','snack':'🍎'};
+
+// ── Section navigation ─────────────────────────────────────────────────
+function showSection(id, btn) {
+  document.querySelectorAll('.recipe-section').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('.rsec-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + id).style.display = 'block';
+  btn.classList.add('active');
+  lucide.createIcons();
+}
+
+// ── Cuisine region tabs ────────────────────────────────────────────────
 function showRegion(id, btn) {
   document.querySelectorAll('.cuisine-region').forEach(r => r.style.display = 'none');
   document.querySelectorAll('.cuisine-tab').forEach(t => t.classList.remove('active'));
@@ -195,20 +470,20 @@ function showRegion(id, btn) {
   btn.classList.add('active');
 }
 
-// ── Generate recipes ─────────────────────────────────────────────────────
+// ── Loading helper ────────────────────────────────────────────────────
+function loadingHTML(msg) {
+  return `<div class="loading-recipes"><div class="loading-spinner"></div><p>${msg}</p></div>`;
+}
+
+// ══════════════ 1. AI GENERATOR ══════════════
 async function generateRecipes() {
   const btn = document.getElementById('genBtn');
   const prefs = document.getElementById('recipePrefs').value;
   btn.disabled = true;
   btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Generating...';
   lucide.createIcons();
-
   const container = document.getElementById('recipesContainer');
-  container.innerHTML = `<div class="loading-recipes">
-    <div class="loading-spinner"></div>
-    <p>NutriAI is crafting recipes for your nutrition gaps...</p>
-  </div>`;
-
+  container.innerHTML = loadingHTML('NutriAI is crafting personalized recipes for your nutrition gaps...');
   try {
     const r = await fetch('/api/recipes/suggest', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -216,37 +491,467 @@ async function generateRecipes() {
     });
     const data = await r.json();
     if (data.recipes?.length) {
-      container.innerHTML = `
-        <div class="section-header">
-          <h2 class="section-title"><i data-lucide="chef-hat"></i> AI Recommended Recipes</h2>
-        </div>
+      container.innerHTML = `<div class="section-header">
+        <h2 class="section-title"><i data-lucide="chef-hat"></i> AI Recommended Recipes</h2></div>
         <div class="recipes-grid">${data.recipes.map(renderRecipeCard).join('')}</div>`;
       lucide.createIcons();
-      container.scrollIntoView({behavior:'smooth'});
     } else {
       container.innerHTML = `<div class="card"><p class="text-muted">${data.raw || 'No recipes returned. Try again.'}</p></div>`;
     }
   } catch(e) {
-    container.innerHTML = '<div class="card"><p style="color:var(--accent-red)">Failed to generate recipes. Please check your API key.</p></div>';
+    container.innerHTML = '<div class="card"><p style="color:var(--accent-red)">Failed. Check your API key.</p></div>';
   }
-  btn.disabled = false;
-  btn.innerHTML = '<i data-lucide="sparkles"></i> Generate Recipes';
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="sparkles"></i> Generate Recipes';
   lucide.createIcons();
 }
 
+// ══════════════ 2. FROM MY FRIDGE ══════════════
+let fridgeItems = [];
+
+function handleFridgeKey(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = document.getElementById('fridgeInput').value.trim().replace(/,$/, '');
+    if (val) addFridgeItem(val);
+    document.getElementById('fridgeInput').value = '';
+  }
+}
+
+function addFridgeItem(name) {
+  if (!name || fridgeItems.includes(name)) return;
+  fridgeItems.push(name);
+  renderFridgeTags();
+}
+
+function removeFridgeItem(name) {
+  fridgeItems = fridgeItems.filter(i => i !== name);
+  renderFridgeTags();
+}
+
+function clearFridge() { fridgeItems = []; renderFridgeTags(); }
+
+function renderFridgeTags() {
+  document.getElementById('fridgeTags').innerHTML = fridgeItems.map(item =>
+    `<span class="fridge-tag">${item}<button onclick="removeFridgeItem('${item}')">×</button></span>`
+  ).join('');
+}
+
+async function generateFromFridge() {
+  if (fridgeItems.length === 0) { showToast('Add at least one ingredient', 'error'); return; }
+  const btn = document.getElementById('fridgeBtn');
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Finding recipes...';
+  lucide.createIcons();
+  const results = document.getElementById('fridgeResults');
+  results.innerHTML = loadingHTML(`Finding every possible recipe from ${fridgeItems.length} ingredients — all permutations and cooking methods...`);
+  try {
+    const r = await fetch('/api/recipes/from-ingredients', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        ingredients: fridgeItems,
+        dietary_prefs: document.getElementById('fridgeDiet').value,
+        cuisine_hint: document.getElementById('fridgeCuisine').value
+      })
+    });
+    const data = await r.json();
+    if (data.error) { results.innerHTML = `<div class="card"><p class="text-red">${data.error}</p></div>`; return; }
+    renderFridgeResults(data);
+  } catch(e) { results.innerHTML = '<div class="card"><p class="text-red">Failed. Try again.</p></div>'; }
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="wand-2"></i> Find All Possible Recipes';
+  lucide.createIcons();
+}
+
+function renderFridgeResults(data) {
+  const recipes = data.recipes || [];
+  if (!recipes.length) { document.getElementById('fridgeResults').innerHTML = '<div class="card"><p class="text-muted">No recipes found. Try adding more ingredients.</p></div>'; return; }
+  document.getElementById('fridgeResults').innerHTML = `
+    <div class="section-header" style="margin-top:1.5rem">
+      <h2 class="section-title"><i data-lucide="utensils"></i> ${data.total_combinations || recipes.length} Possible Recipes</h2>
+      <p class="text-muted" style="font-size:13px">From: ${fridgeItems.join(', ')}</p>
+    </div>
+    <div class="fridge-results-grid">
+      ${recipes.map(r => `
+        <div class="fridge-recipe-card" onclick='openFridgeRecipe(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
+          <div class="fridge-recipe-top">
+            <span class="fridge-recipe-emoji">${r.emoji || '🍽️'}</span>
+            <div>
+              <div class="fridge-recipe-name">${r.name}</div>
+              <div class="fridge-recipe-meta">
+                <span class="badge badge-ghost">${r.method || ''}</span>
+                <span class="badge badge-ghost">${r.cuisine || ''}</span>
+                <span class="badge badge-ghost">${r.time || ''}</span>
+              </div>
+            </div>
+          </div>
+          <p class="fridge-recipe-desc">${r.description || ''}</p>
+          <div class="fridge-recipe-ingredients">
+            ${(r.ingredients_used || []).map(i => `<span class="fridge-ing-tag has">${i}</span>`).join('')}
+            ${(r.missing_ingredients || []).slice(0,3).map(i => `<span class="fridge-ing-tag need">${i}</span>`).join('')}
+          </div>
+          <div class="fridge-recipe-footer">
+            <span style="font-size:11px;color:var(--accent-teal)">${r.nutrition_highlight || ''}</span>
+            ${r.calories_estimate ? `<span class="stat-pill">🔥 ~${r.calories_estimate} kcal</span>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  lucide.createIcons();
+}
+
+function openFridgeRecipe(r) {
+  document.getElementById('modalContent').innerHTML = `
+    <div class="recipe-modal-header">
+      <div class="recipe-modal-emoji">${r.emoji || '🍽️'}</div>
+      <div><h2>${r.name}</h2>
+        <div class="recipe-meta">
+          <span>${r.method || ''}</span><span>${r.cuisine || ''}</span><span>${r.time || ''}</span>
+        </div>
+      </div>
+    </div>
+    <p class="recipe-modal-desc">${r.description || ''}</p>
+    <div style="margin-bottom:12px">
+      <strong style="font-size:12px;color:var(--text-muted)">INGREDIENTS YOU HAVE</strong>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        ${(r.ingredients_used||[]).map(i=>`<span class="fridge-ing-tag has">${i}</span>`).join('')}
+      </div>
+    </div>
+    ${r.missing_ingredients?.length ? `<div style="margin-bottom:12px">
+      <strong style="font-size:12px;color:var(--text-muted)">YOU ALSO NEED</strong>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        ${r.missing_ingredients.map(i=>`<span class="fridge-ing-tag need">${i}</span>`).join('')}
+      </div></div>` : ''}
+    <div class="recipe-sections">
+      <div><h4>📋 Steps</h4><ol class="steps-list">${(r.key_steps||[]).map(s=>`<li>${s}</li>`).join('')}</ol></div>
+      <div><h4>✨ Nutrition</h4>
+        <p style="color:var(--accent-teal);font-size:13px">${r.nutrition_highlight || ''}</p>
+        ${r.calories_estimate ? `<p class="text-muted" style="font-size:12px">~${r.calories_estimate} kcal per serving</p>` : ''}
+      </div>
+    </div>`;
+  document.getElementById('recipeModal').style.display = 'flex';
+  lucide.createIcons();
+}
+
+// ══════════════ 3. VARIATIONS ══════════════
+async function generateVariations() {
+  const name = document.getElementById('varRecipeName').value.trim();
+  if (!name) { showToast('Enter a recipe name', 'error'); return; }
+  const btn = document.getElementById('varBtn');
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Generating variations...';
+  lucide.createIcons();
+  const results = document.getElementById('variationsResults');
+  results.innerHTML = loadingHTML(`Generating every possible variation of "${name}"...`);
+  try {
+    const r = await fetch('/api/recipes/variations', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        recipe_name: name,
+        base_ingredients: document.getElementById('varIngredients').value,
+        dietary_prefs: document.getElementById('varDiet').value
+      })
+    });
+    const data = await r.json();
+    if (data.error) { results.innerHTML = `<div class="card"><p class="text-red">${data.error}</p></div>`; return; }
+    renderVariations(data, name);
+  } catch(e) { results.innerHTML = '<div class="card"><p class="text-red">Failed. Try again.</p></div>'; }
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="shuffle"></i> Generate All Variations';
+  lucide.createIcons();
+}
+
+function renderVariations(data, name) {
+  const vars = data.variations || [];
+  const subs = data.substitution_guide || {};
+  let subsHtml = '';
+  const subCats = Object.entries(subs).filter(([,v]) => v?.length);
+  if (subCats.length) {
+    subsHtml = `<div class="card" style="margin-top:1rem">
+      <h3 class="card-title"><i data-lucide="replace"></i> Ingredient Substitution Guide</h3>
+      <div class="subs-grid">
+        ${subCats.map(([cat, items]) => `
+          <div class="sub-category">
+            <div class="sub-cat-title">${cat.charAt(0).toUpperCase()+cat.slice(1)}</div>
+            ${items.map(s => `<div class="sub-item">
+              <span class="sub-orig">${s.original || ''}</span>
+              <span class="sub-arrow">→</span>
+              <span class="sub-new">${s.sub || s.substitute || ''}</span>
+              <span class="sub-note">${s.ratio || ''} ${s.note ? '· '+s.note : ''}</span>
+            </div>`).join('')}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('variationsResults').innerHTML = `
+    <div class="section-header" style="margin-top:1.5rem">
+      <h2 class="section-title"><i data-lucide="layers"></i> ${data.total_variations || vars.length} Ways to Make ${name}</h2>
+    </div>
+    <div class="variations-grid">
+      ${vars.map(v => `
+        <div class="variation-card">
+          <div class="var-type-badge">${v.type || 'Variation'}</div>
+          <div class="var-name">${v.name}</div>
+          <p class="var-desc">${v.description || ''}</p>
+          ${v.key_changes?.length ? `<ul class="var-changes">${v.key_changes.map(c=>`<li>${c}</li>`).join('')}</ul>` : ''}
+          ${v.ingredient_swaps?.length ? `<div class="var-swaps">
+            ${v.ingredient_swaps.map(s=>`<span class="swap-tag"><del>${s.original}</del> → ${s.substitute}</span>`).join('')}
+          </div>` : ''}
+          <div class="var-footer">
+            <span class="badge badge-ghost">${v.time || ''}</span>
+            <span class="badge badge-ghost">${v.difficulty || ''}</span>
+            ${v.best_for ? `<span class="badge badge-green">${v.best_for}</span>` : ''}
+          </div>
+          ${v.nutrition_impact ? `<div class="var-nutrition">${v.nutrition_impact}</div>` : ''}
+        </div>`).join('')}
+    </div>
+    ${subsHtml}`;
+  lucide.createIcons();
+}
+
+// ══════════════ 4. WORLD CUISINES ══════════════
+async function getCuisineRecipe(cuisine) {
+  showSection('ai-gen', document.querySelector('.rsec-tab'));
+  document.getElementById('recipePrefs').value = `${cuisine} cuisine — authentic, traditional, nutritious`;
+  generateRecipes();
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// ══════════════ 5. AYURVEDA ══════════════
+let selectedDosha = '';
+
+function selectDosha(dosha, el) {
+  selectedDosha = dosha;
+  document.querySelectorAll('.dosha-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function getDoshaRecipes() {
+  if (!selectedDosha) { showToast('Select a dosha first', 'error'); return; }
+  const btn = document.getElementById('doshaBtn');
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Generating...';
+  lucide.createIcons();
+  const results = document.getElementById('doshaResults');
+  results.innerHTML = loadingHTML(`Generating ${selectedDosha} dosha recipes with Ayurvedic wisdom...`);
+  try {
+    const r = await fetch('/api/recipes/dosha', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({dosha: selectedDosha, season: document.getElementById('doshaSeasonSelect').value})
+    });
+    const data = await r.json();
+    if (data.error) { results.innerHTML = `<div class="card"><p class="text-red">${data.error}</p></div>`; return; }
+    renderDoshaResults(data);
+  } catch(e) { results.innerHTML = '<div class="card"><p class="text-red">Failed. Try again.</p></div>'; }
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="leaf"></i> Get Dosha Recipes';
+  lucide.createIcons();
+}
+
+function renderDoshaResults(data) {
+  const recipes = data.recipes || [];
+  const doshaEmoji = {vata:'🌬️', pitta:'🔥', kapha:'🌊', tridoshic:'☯️'};
+  document.getElementById('doshaResults').innerHTML = `
+    <div class="card dosha-summary-card">
+      <h3 class="card-title">${doshaEmoji[data.dosha] || '🌿'} ${data.dosha?.charAt(0).toUpperCase()+data.dosha?.slice(1)} Dosha</h3>
+      <p style="color:var(--text-secondary);margin-bottom:12px">${data.dosha_description || ''}</p>
+      <div class="dosha-foods-grid">
+        <div>
+          <strong style="color:var(--accent-green);font-size:12px">✅ FAVOR</strong>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            ${(data.foods_to_favor||[]).slice(0,8).map(f=>`<span class="fridge-ing-tag has">${f}</span>`).join('')}
+          </div>
+        </div>
+        <div>
+          <strong style="color:var(--accent-red);font-size:12px">❌ AVOID</strong>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            ${(data.foods_to_avoid||[]).slice(0,8).map(f=>`<span class="fridge-ing-tag need">${f}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="recipes-grid" style="margin-top:1rem">
+      ${recipes.map(r => `
+        <div class="recipe-card ayur-recipe-card" onclick='openAyurRecipe(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
+          <div class="recipe-emoji">${r.emoji || '🌿'}</div>
+          <div class="recipe-info">
+            <h4 class="recipe-name">${r.name}</h4>
+            <p class="recipe-desc">${r.description || ''}</p>
+            <div class="recipe-meta">
+              <span>${r.time || ''}</span>
+              <span>${r.meal_type || ''}</span>
+            </div>
+            <div class="recipe-nutrients">${r.ayurvedic_benefit || r.dosha_effect || ''}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  lucide.createIcons();
+}
+
+function openAyurRecipe(r) {
+  document.getElementById('modalContent').innerHTML = `
+    <div class="recipe-modal-header">
+      <div class="recipe-modal-emoji">${r.emoji || '🌿'}</div>
+      <div><h2>${r.name}</h2>
+        <div class="recipe-meta"><span>${r.meal_type||''}</span><span>${r.time||''}</span></div>
+      </div>
+    </div>
+    ${r.description ? `<p class="recipe-modal-desc">${r.description}</p>` : ''}
+    ${r.key_ayurvedic_ingredients?.length ? `<div class="recipe-tags">
+      ${r.key_ayurvedic_ingredients.map(i=>`<span class="tag" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#4ade80">🌿 ${i}</span>`).join('')}
+    </div>` : ''}
+    ${r.nutrition_per_serving ? `<div class="recipe-macros-bar">
+      <div class="rmb-item"><span class="rmb-val">🔥 ${r.nutrition_per_serving.calories||0}</span><span>kcal</span></div>
+      <div class="rmb-item"><span class="rmb-val">💪 ${r.nutrition_per_serving.protein||0}g</span><span>protein</span></div>
+    </div>` : ''}
+    <div class="recipe-sections">
+      <div><h4><i data-lucide="list"></i> Ingredients</h4>
+        <ul class="ingredients-list">${(r.ingredients||[]).map(i=>`<li>${i}</li>`).join('')}</ul>
+      </div>
+      <div><h4><i data-lucide="chef-hat"></i> Steps</h4>
+        <ol class="steps-list">${(r.steps||[]).map(s=>`<li>${s}</li>`).join('')}</ol>
+      </div>
+    </div>
+    ${r.best_time_to_eat ? `<div class="chef-tip" style="background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25)"><i data-lucide="clock"></i> <strong>Best Time:</strong> ${r.best_time_to_eat}</div>` : ''}
+    ${r.ayurvedic_benefit ? `<div class="chef-tip"><i data-lucide="leaf"></i> <strong>Ayurvedic Benefit:</strong> ${r.ayurvedic_benefit}</div>` : ''}`;
+  document.getElementById('recipeModal').style.display = 'flex';
+  lucide.createIcons();
+}
+
+async function checkAyurveda() {
+  const ing = document.getElementById('ayurIngredients').value.trim();
+  if (!ing) { showToast('Enter ingredients to check', 'error'); return; }
+  const btn = document.getElementById('ayurBtn');
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Checking...';
+  lucide.createIcons();
+  const results = document.getElementById('ayurResults');
+  results.innerHTML = loadingHTML('Analyzing Ayurvedic compatibility...');
+  try {
+    const r = await fetch('/api/recipes/ayurvedic-check', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        ingredients: ing.split(',').map(i=>i.trim()).filter(Boolean),
+        dosha: document.getElementById('ayurDosha').value
+      })
+    });
+    const data = await r.json();
+    renderAyurResults(data);
+  } catch(e) { results.innerHTML = '<div class="card"><p class="text-red">Failed. Try again.</p></div>'; }
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="search"></i> Check Compatibility';
+  lucide.createIcons();
+}
+
+function renderAyurResults(data) {
+  const scoreColor = data.ayurvedic_score >= 8 ? 'var(--accent-green)' : data.ayurvedic_score >= 5 ? 'var(--accent-amber)' : 'var(--accent-red)';
+  const warnings = data.nishidda_warnings || [];
+  const flags = data.viruddhahara_flags || [];
+  const classif = data.shuddha_classification || [];
+  const dosha = data.dosha_analysis || {};
+  const prep = data.optimal_preparation || {};
+
+  document.getElementById('ayurResults').innerHTML = `
+    <!-- Score -->
+    <div class="ayur-result-header">
+      <div class="ayur-score" style="border-color:${scoreColor}">
+        <span style="font-size:2rem;font-weight:800;color:${scoreColor}">${data.ayurvedic_score || '?'}</span>
+        <span style="font-size:11px;color:var(--text-muted)">/10</span>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:16px">${data.overall_compatibility || 'Unknown'}</div>
+        <div style="color:var(--text-muted);font-size:12px">Ayurvedic compatibility score</div>
+      </div>
+    </div>
+
+    <!-- Nishidda warnings -->
+    ${warnings.length ? `<div class="ayur-section">
+      <h4 class="ayur-section-title">🚫 Nishidda Aahar Warnings (${warnings.length})</h4>
+      ${warnings.map(w => `<div class="ayur-warning ${w.severity==='high'?'high':'medium'}">
+        <div class="ayur-warn-combo">⚠️ ${w.combination}</div>
+        <div class="ayur-warn-reason">${w.reason}</div>
+        ${w.remedy ? `<div class="ayur-warn-remedy">💡 ${w.remedy}</div>` : ''}
+      </div>`).join('')}
+    </div>` : `<div class="ayur-section"><p style="color:var(--accent-green)">✅ No Nishidda Aahar violations found!</p></div>`}
+
+    <!-- Viruddhahara -->
+    ${flags.length ? `<div class="ayur-section">
+      <h4 class="ayur-section-title">⚡ Viruddhahara (Incompatible Qualities)</h4>
+      ${flags.map(f => `<div class="ayur-warning medium">
+        <div class="ayur-warn-combo">${(f.ingredients||[]).join(' + ')}</div>
+        <div class="ayur-warn-reason">${f.issue || ''}</div>
+        ${f.remedy ? `<div class="ayur-warn-remedy">💡 ${f.remedy}</div>` : ''}
+      </div>`).join('')}
+    </div>` : ''}
+
+    <!-- Shuddha classification -->
+    ${classif.length ? `<div class="ayur-section">
+      <h4 class="ayur-section-title">✨ Shuddha Aahar Classification</h4>
+      <div class="classif-grid">
+        ${classif.map(c => `<div class="classif-item">
+          <span class="classif-ing">${c.ingredient}</span>
+          <span class="classif-type ${(c.type||'').toLowerCase()}">${c.type}</span>
+          <span class="classif-quality">${c.quality || ''}</span>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Dosha impact -->
+    ${Object.keys(dosha).length ? `<div class="ayur-section">
+      <h4 class="ayur-section-title">🔮 Dosha Impact</h4>
+      <div class="dosha-impact-grid">
+        ${Object.entries(dosha).map(([d, info]) => `<div class="dosha-impact-card">
+          <div class="di-dosha">${DOSHA_EMOJI[d]||'☯️'} ${d.charAt(0).toUpperCase()+d.slice(1)}</div>
+          <div class="di-impact" style="color:${info.impact?.toLowerCase().includes('balanc')?'var(--accent-green)':'var(--accent-amber)'}">${info.impact||''}</div>
+          <div class="di-score">${info.score||''}/10</div>
+          <div class="di-tip">${info.tip||''}</div>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Optimal preparation -->
+    ${prep.best_time ? `<div class="ayur-section">
+      <h4 class="ayur-section-title">🍃 Optimal Preparation</h4>
+      <div class="prep-grid">
+        ${prep.best_time ? `<div class="prep-item"><span>⏰ Best Time</span><strong>${prep.best_time}</strong></div>` : ''}
+        ${prep.cooking_method ? `<div class="prep-item"><span>🍳 Method</span><strong>${prep.cooking_method}</strong></div>` : ''}
+        ${prep.spices_to_add?.length ? `<div class="prep-item"><span>✅ Add Spices</span><strong>${prep.spices_to_add.join(', ')}</strong></div>` : ''}
+        ${prep.spices_to_avoid?.length ? `<div class="prep-item"><span>❌ Avoid</span><strong>${prep.spices_to_avoid.join(', ')}</strong></div>` : ''}
+      </div>
+      ${prep.eating_tips?.length ? `<ul style="margin-top:8px;padding-left:16px;font-size:13px;color:var(--text-secondary)">${prep.eating_tips.map(t=>`<li>${t}</li>`).join('')}</ul>` : ''}
+    </div>` : ''}
+
+    ${data.ayurvedic_recipe_suggestion ? `<div class="chef-tip" style="margin-top:1rem">
+      <i data-lucide="leaf"></i><div><strong>Suggested Recipe:</strong> ${data.ayurvedic_recipe_suggestion}</div>
+    </div>` : ''}`;
+  lucide.createIcons();
+}
+
+// ══════════════ 6. MEAL ANALYZER ══════════════
+async function analyzeMeal() {
+  const btn = document.getElementById('analyzeBtn');
+  const name = document.getElementById('mealName').value.trim();
+  const ingredients = document.getElementById('mealIngredients').value.trim();
+  if (!name && !ingredients) { showToast('Enter a meal name or ingredients', 'error'); return; }
+  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Analyzing...';
+  lucide.createIcons();
+  try {
+    const r = await fetch('/api/meal/analyze', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({food_name: name, ingredients})
+    });
+    const d = await r.json();
+    document.getElementById('analysisText').innerHTML = marked.parse(d.analysis || d.error || 'Could not analyze.');
+    document.getElementById('analysisResult').style.display = 'block';
+  } catch(e) { showToast('Analysis failed', 'error'); }
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="wand-2"></i> Analyze & Optimize';
+  lucide.createIcons();
+}
+
+// ══════════════ SHARED ══════════════
 function renderRecipeCard(r) {
-  const nutrients = r.nutrients_addressed?.join(', ') || '';
   return `<div class="recipe-card" onclick='openRecipe(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
-    <div class="recipe-emoji">${r.emoji || '🍽️'}</div>
+    <div class="recipe-emoji">${r.emoji||'🍽️'}</div>
     <div class="recipe-info">
       <h4 class="recipe-name">${r.name}</h4>
-      <p class="recipe-desc">${r.description || ''}</p>
+      <p class="recipe-desc">${r.description||''}</p>
       <div class="recipe-meta">
-        <span><i data-lucide="clock"></i> ${r.time || ''}</span>
-        <span><i data-lucide="bar-chart"></i> ${r.difficulty || ''}</span>
-        ${r.nutrition_per_serving?.calories ? `<span>🔥 ${r.nutrition_per_serving.calories} kcal</span>` : ''}
+        <span><i data-lucide="clock"></i>${r.time||''}</span>
+        <span>${r.difficulty||''}</span>
+        ${r.nutrition_per_serving?.calories?`<span>🔥${r.nutrition_per_serving.calories} kcal</span>`:''}
       </div>
-      ${nutrients ? `<div class="recipe-nutrients">Boosts: ${nutrients}</div>` : ''}
+      ${r.nutrients_addressed?.length?`<div class="recipe-nutrients">Boosts: ${r.nutrients_addressed.join(', ')}</div>`:''}
     </div>
   </div>`;
 }
@@ -255,74 +960,33 @@ function openRecipe(r) {
   const n = r.nutrition_per_serving || {};
   document.getElementById('modalContent').innerHTML = `
     <div class="recipe-modal-header">
-      <div class="recipe-modal-emoji">${r.emoji || '🍽️'}</div>
-      <div>
-        <h2>${r.name}</h2>
-        <div class="recipe-meta">
-          <span><i data-lucide="clock"></i> ${r.time || ''}</span>
-          <span><i data-lucide="bar-chart"></i> ${r.difficulty || ''}</span>
-        </div>
+      <div class="recipe-modal-emoji">${r.emoji||'🍽️'}</div>
+      <div><h2>${r.name}</h2>
+        <div class="recipe-meta"><span><i data-lucide="clock"></i>${r.time||''}</span><span>${r.difficulty||''}</span></div>
       </div>
     </div>
-    ${r.description ? `<p class="recipe-modal-desc">${r.description}</p>` : ''}
-    ${n.calories ? `<div class="recipe-macros-bar">
+    ${r.description?`<p class="recipe-modal-desc">${r.description}</p>`:''}
+    ${n.calories?`<div class="recipe-macros-bar">
       <div class="rmb-item"><span class="rmb-val">🔥 ${n.calories}</span><span>kcal</span></div>
-      <div class="rmb-item"><span class="rmb-val">💪 ${n.protein || 0}g</span><span>protein</span></div>
-      <div class="rmb-item"><span class="rmb-val">🌾 ${n.carbs || 0}g</span><span>carbs</span></div>
-      <div class="rmb-item"><span class="rmb-val">🥑 ${n.fat || 0}g</span><span>fat</span></div>
-    </div>` : ''}
-    ${r.nutrients_addressed?.length ? `<div class="recipe-tags">${r.nutrients_addressed.map(t=>`<span class="tag">${t}</span>`).join('')}</div>` : ''}
+      <div class="rmb-item"><span class="rmb-val">💪 ${n.protein||0}g</span><span>protein</span></div>
+      <div class="rmb-item"><span class="rmb-val">🌾 ${n.carbs||0}g</span><span>carbs</span></div>
+      <div class="rmb-item"><span class="rmb-val">🥑 ${n.fat||0}g</span><span>fat</span></div>
+    </div>`:''}
+    ${r.nutrients_addressed?.length?`<div class="recipe-tags">${r.nutrients_addressed.map(t=>`<span class="tag">${t}</span>`).join('')}</div>`:''}
     <div class="recipe-sections">
-      <div>
-        <h4><i data-lucide="list"></i> Ingredients</h4>
+      <div><h4><i data-lucide="list"></i> Ingredients</h4>
         <ul class="ingredients-list">${(r.ingredients||[]).map(i=>`<li>${i}</li>`).join('')}</ul>
       </div>
-      <div>
-        <h4><i data-lucide="chef-hat"></i> Steps</h4>
+      <div><h4><i data-lucide="chef-hat"></i> Steps</h4>
         <ol class="steps-list">${(r.steps||[]).map(s=>`<li>${s}</li>`).join('')}</ol>
       </div>
     </div>
-    ${r.chef_tip ? `<div class="chef-tip"><i data-lucide="lightbulb"></i> <strong>Chef's Tip:</strong> ${r.chef_tip}</div>` : ''}`;
+    ${r.chef_tip?`<div class="chef-tip"><i data-lucide="lightbulb"></i><strong>Chef's Tip:</strong> ${r.chef_tip}</div>`:''}`;
   document.getElementById('recipeModal').style.display = 'flex';
   lucide.createIcons();
 }
 
 function closeModal() { document.getElementById('recipeModal').style.display = 'none'; }
-
-// ── Cuisine shortcut ─────────────────────────────────────────────────────
-async function getCuisineRecipe(cuisine) {
-  document.getElementById('recipePrefs').value = `${cuisine} cuisine — authentic, nutritious, traditional recipes`;
-  generateRecipes();
-  window.scrollTo({top: 0, behavior: 'smooth'});
-}
-
-// ── Meal analyzer ─────────────────────────────────────────────────────────
-async function analyzeMeal() {
-  const btn = document.getElementById('analyzeBtn');
-  const name = document.getElementById('mealName').value.trim();
-  const ingredients = document.getElementById('mealIngredients').value.trim();
-  if (!name && !ingredients) { showToast('Enter a meal name or ingredients', 'error'); return; }
-  btn.disabled = true;
-  btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Analyzing...';
-  lucide.createIcons();
-
-  try {
-    const r = await fetch('/api/meal/analyze', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({food_name: name, ingredients})
-    });
-    const d = await r.json();
-    const text = d.analysis || d.error || 'Could not analyze this meal.';
-    document.getElementById('analysisText').innerHTML = marked.parse(text);
-    document.getElementById('analysisResult').style.display = 'block';
-    document.getElementById('analysisResult').scrollIntoView({behavior:'smooth'});
-  } catch(e) {
-    showToast('Analysis failed', 'error');
-  }
-  btn.disabled = false;
-  btn.innerHTML = '<i data-lucide="wand-2"></i> Analyze & Optimize';
-  lucide.createIcons();
-}
 
 window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
 </script>
