@@ -1,5 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Recipes — Chef Builder{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div>
@@ -18,17 +23,144 @@
     </div>
   </div>
   <div class="gen-controls">
-    <input type="text" id="recipePrefs" class="input" placeholder="Optional: dietary preferences, cuisine, ingredients you have..."/>
+    <input type="text" id="recipePrefs" class="input" placeholder="Optional: cuisine, ingredients you have, dietary needs..."/>
     <button class="btn btn-primary btn-lg" onclick="generateRecipes()" id="genBtn">
       <i data-lucide="sparkles"></i> Generate Recipes
     </button>
   </div>
 </div>
 
+<!-- Generated Recipes -->
+<div id="recipesContainer"></div>
+
+<!-- World Cuisines -->
+<div class="card" style="margin-bottom:1.5rem">
+  <div class="card-header">
+    <h3 class="card-title"><i data-lucide="globe"></i> Explore World Cuisines</h3>
+    <span class="text-muted" style="font-size:12px">Click any cuisine for AI-crafted authentic recipes</span>
+  </div>
+
+  <!-- Region tabs -->
+  <div class="cuisine-tabs" id="cuisineTabs">
+    <button class="cuisine-tab active" onclick="showRegion('asian',this)">🌏 Asian</button>
+    <button class="cuisine-tab" onclick="showRegion('european',this)">🌍 European</button>
+    <button class="cuisine-tab" onclick="showRegion('mideast',this)">🕌 Middle East & Africa</button>
+    <button class="cuisine-tab" onclick="showRegion('americas',this)">🌎 Americas</button>
+  </div>
+
+  <!-- Asian -->
+  <div class="cuisine-region active" id="region-asian">
+    <div class="cuisine-grid">
+      {% set asian = [
+        ('🇯🇵','Japanese','Umami-rich, longevity foods, omega-3'),
+        ('🇨🇳','Chinese','Stir-fry, balanced macros, diverse veg'),
+        ('🇰🇷','Korean','Fermented, gut-friendly, high-fiber'),
+        ('🇹🇭','Thai','Herbs, healthy fats, anti-inflammatory'),
+        ('🇻🇳','Vietnamese','Fresh herbs, lean proteins, low-fat'),
+        ('🇮🇳','Indian','Spices, anti-inflammatory, plant-rich'),
+        ('🇮🇩','Indonesian','Coconut, spices, diverse nutrients'),
+        ('🇲🇾','Malaysian','Bold spices, rich in vitamins'),
+        ('🇵🇭','Filipino','Hearty, vinegar-based, protein-rich'),
+        ('🇵🇰','Pakistani','Aromatic, high-protein, complex spices'),
+        ('🇱🇰','Sri Lankan','Coconut curries, rice, tropical fruits'),
+        ('🇳🇵','Nepali','Dal, whole grains, mountain herbs'),
+      ] %}
+      {% for flag, name, desc in asian %}
+      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+        <div class="cuisine-flag">{{ flag }}</div>
+        <div class="cuisine-name">{{ name }}</div>
+        <div class="cuisine-desc">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- European & Mediterranean -->
+  <div class="cuisine-region" id="region-european" style="display:none">
+    <div class="cuisine-grid">
+      {% set european = [
+        ('🇮🇹','Italian','Mediterranean, heart-healthy, olive oil'),
+        ('🇫🇷','French','Classic techniques, rich & balanced'),
+        ('🇬🇷','Greek','Mediterranean diet, longevity foods'),
+        ('🇪🇸','Spanish','Tapas culture, olive oil, seafood'),
+        ('🇹🇷','Turkish','Diverse veg, lean meats, legumes'),
+        ('🇩🇪','German','Hearty, protein-rich, whole grains'),
+        ('🇵🇹','Portuguese','Seafood-rich, olive oil, vegetables'),
+        ('🇷🇺','Russian','Root veg, fermented, warming soups'),
+        ('🇵🇱','Polish','Hearty, cabbage, protein-dense'),
+        ('🇸🇪','Swedish','Clean, balanced, high omega-3'),
+        ('🇬🇧','British','Classic comfort, root vegetables'),
+        ('🇬🇪','Georgian','Walnuts, pomegranate, herb-rich'),
+      ] %}
+      {% for flag, name, desc in european %}
+      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+        <div class="cuisine-flag">{{ flag }}</div>
+        <div class="cuisine-name">{{ name }}</div>
+        <div class="cuisine-desc">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Middle East & Africa -->
+  <div class="cuisine-region" id="region-mideast" style="display:none">
+    <div class="cuisine-grid">
+      {% set mideast = [
+        ('🇲🇦','Moroccan','Ancient spices, tagines, diverse nutrients'),
+        ('🇱🇧','Lebanese','Mezze, legumes, heart-healthy'),
+        ('🇮🇱','Israeli','Fresh salads, hummus, diverse veg'),
+        ('🇸🇦','Saudi','Rice, lamb, dates, aromatic spices'),
+        ('🇪🇬','Egyptian','Legumes, ful medames, iron-rich'),
+        ('🇮🇷','Persian','Herbs, pomegranate, saffron, balanced'),
+        ('🇪🇹','Ethiopian','Injera, teff, plant-rich, high-fiber'),
+        ('🇳🇬','Nigerian','Stews, plantain, protein-dense'),
+        ('🇬🇭','Ghanaian','Fufu, groundnuts, antioxidant-rich'),
+        ('🇸🇳','Senegalese','Thieboudienne, peanuts, diverse'),
+        ('🇰🇪','Kenyan','Ugali, sukuma wiki, iron-rich'),
+        ('🇿🇦','South African','Braai, bobotie, diverse proteins'),
+      ] %}
+      {% for flag, name, desc in mideast %}
+      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+        <div class="cuisine-flag">{{ flag }}</div>
+        <div class="cuisine-name">{{ name }}</div>
+        <div class="cuisine-desc">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Americas -->
+  <div class="cuisine-region" id="region-americas" style="display:none">
+    <div class="cuisine-grid">
+      {% set americas = [
+        ('🇲🇽','Mexican','Legumes, fresh produce, bold flavors'),
+        ('🇵🇪','Peruvian','Superfoods, quinoa, ceviche'),
+        ('🇧🇷','Brazilian','Diverse, tropical fruits, high-protein'),
+        ('🇦🇷','Argentine','Grass-fed beef, chimichurri, iron-rich'),
+        ('🇨🇴','Colombian','Arepas, tropical fruits, diverse veg'),
+        ('🇯🇲','Jamaican','Jerk spices, tropical, antioxidants'),
+        ('🇨🇺','Cuban','Rice & beans, root veg, citrus'),
+        ('🇺🇸','American','Diverse regional cuisines, comfort food'),
+        ('🇨🇦','Canadian','Maple, game meats, diverse influences'),
+        ('🇨🇱','Chilean','Seafood, avocado, fresh produce'),
+        ('🇻🇪','Venezuelan','Arepas, pabellón, tropical flavors'),
+        ('🇧🇴','Bolivian','Quinoa native, high-altitude nutrition'),
+      ] %}
+      {% for flag, name, desc in americas %}
+      <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
+        <div class="cuisine-flag">{{ flag }}</div>
+        <div class="cuisine-name">{{ name }}</div>
+        <div class="cuisine-desc">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
 <!-- Meal Analyzer -->
 <div class="card meal-analyzer-card">
   <h3 class="card-title"><i data-lucide="scan-search"></i> Meal Analyzer & Optimizer</h3>
-  <p class="card-desc">Paste any recipe and AI will suggest improvements for better nutrition</p>
+  <p class="card-desc">Paste any recipe and AI will analyze its nutrition and suggest improvements</p>
   <div class="analyzer-form">
     <input type="text" id="mealName" class="input" placeholder="Meal name (e.g. Pasta Bolognese)"/>
     <textarea id="mealIngredients" class="input textarea" rows="3" placeholder="Ingredients (e.g. 200g pasta, 100g ground beef, tomato sauce, cheese...)"></textarea>
@@ -38,35 +170,7 @@
   </div>
   <div class="analysis-result" id="analysisResult" style="display:none">
     <h4>AI Analysis</h4>
-    <div id="analysisText"></div>
-  </div>
-</div>
-
-<!-- Generated Recipes -->
-<div id="recipesContainer"></div>
-
-<!-- World Cuisine Cards -->
-<div class="card">
-  <h3 class="card-title"><i data-lucide="globe"></i> Explore World Cuisines</h3>
-  <p class="card-desc">Click a cuisine to get AI-crafted authentic recipes</p>
-  <div class="cuisine-grid">
-    {% set cuisines = [
-      ('🇯🇵','Japanese','Light, umami-rich, longevity foods'),
-      ('🇮🇳','Indian','Spices, anti-inflammatory, plant-rich'),
-      ('🇲🇽','Mexican','Legumes, fresh produce, bold flavors'),
-      ('🇹🇭','Thai','Herbs, healthy fats, vibrant nutrition'),
-      ('🇮🇹','Italian','Mediterranean, heart-healthy'),
-      ('🇲🇦','Moroccan','Ancient spices, diverse nutrients'),
-      ('🇰🇷','Korean','Fermented, gut-friendly, balanced'),
-      ('🇵🇪','Peruvian','Superfoods, unique ingredients'),
-    ] %}
-    {% for flag, name, desc in cuisines %}
-    <div class="cuisine-card" onclick="getCuisineRecipe('{{ name }}')">
-      <div class="cuisine-flag">{{ flag }}</div>
-      <div class="cuisine-name">{{ name }}</div>
-      <div class="cuisine-desc">{{ desc }}</div>
-    </div>
-    {% endfor %}
+    <div id="analysisText" class="prose"></div>
   </div>
 </div>
 
@@ -81,6 +185,17 @@
 
 {% block scripts %}
 <script>
+marked.setOptions({ breaks: true, gfm: true });
+
+// ── Region tabs ─────────────────────────────────────────────────────────
+function showRegion(id, btn) {
+  document.querySelectorAll('.cuisine-region').forEach(r => r.style.display = 'none');
+  document.querySelectorAll('.cuisine-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('region-' + id).style.display = 'block';
+  btn.classList.add('active');
+}
+
+// ── Generate recipes ─────────────────────────────────────────────────────
 async function generateRecipes() {
   const btn = document.getElementById('genBtn');
   const prefs = document.getElementById('recipePrefs').value;
@@ -89,24 +204,30 @@ async function generateRecipes() {
   lucide.createIcons();
 
   const container = document.getElementById('recipesContainer');
-  container.innerHTML = '<div class="loading-recipes"><div class="loading-spinner"></div><p>AI is crafting personalized recipes for your nutrition gaps...</p></div>';
+  container.innerHTML = `<div class="loading-recipes">
+    <div class="loading-spinner"></div>
+    <p>NutriAI is crafting recipes for your nutrition gaps...</p>
+  </div>`;
 
   try {
     const r = await fetch('/api/recipes/suggest', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({preferences: prefs})
     });
     const data = await r.json();
-    if (data.recipes && data.recipes.length) {
-      container.innerHTML = `<div class="section-header"><h2 class="section-title"><i data-lucide="chef-hat"></i> AI Recommended Recipes</h2></div>
+    if (data.recipes?.length) {
+      container.innerHTML = `
+        <div class="section-header">
+          <h2 class="section-title"><i data-lucide="chef-hat"></i> AI Recommended Recipes</h2>
+        </div>
         <div class="recipes-grid">${data.recipes.map(renderRecipeCard).join('')}</div>`;
       lucide.createIcons();
-    } else if (data.raw) {
-      container.innerHTML = `<div class="card"><p>${data.raw}</p></div>`;
+      container.scrollIntoView({behavior:'smooth'});
+    } else {
+      container.innerHTML = `<div class="card"><p class="text-muted">${data.raw || 'No recipes returned. Try again.'}</p></div>`;
     }
   } catch(e) {
-    container.innerHTML = '<div class="card"><p class="text-red">Failed to generate recipes. Check your API key.</p></div>';
+    container.innerHTML = '<div class="card"><p style="color:var(--accent-red)">Failed to generate recipes. Please check your API key.</p></div>';
   }
   btn.disabled = false;
   btn.innerHTML = '<i data-lucide="sparkles"></i> Generate Recipes';
@@ -115,15 +236,15 @@ async function generateRecipes() {
 
 function renderRecipeCard(r) {
   const nutrients = r.nutrients_addressed?.join(', ') || '';
-  return `<div class="recipe-card" onclick='openRecipe(${JSON.stringify(r)})'>
+  return `<div class="recipe-card" onclick='openRecipe(${JSON.stringify(r).replace(/'/g,"&#39;")})'>
     <div class="recipe-emoji">${r.emoji || '🍽️'}</div>
     <div class="recipe-info">
       <h4 class="recipe-name">${r.name}</h4>
       <p class="recipe-desc">${r.description || ''}</p>
       <div class="recipe-meta">
-        <span><i data-lucide="clock"></i> ${r.time}</span>
-        <span><i data-lucide="bar-chart"></i> ${r.difficulty}</span>
-        ${r.nutrition_per_serving ? `<span>🔥 ${r.nutrition_per_serving.calories} kcal</span>` : ''}
+        <span><i data-lucide="clock"></i> ${r.time || ''}</span>
+        <span><i data-lucide="bar-chart"></i> ${r.difficulty || ''}</span>
+        ${r.nutrition_per_serving?.calories ? `<span>🔥 ${r.nutrition_per_serving.calories} kcal</span>` : ''}
       </div>
       ${nutrients ? `<div class="recipe-nutrients">Boosts: ${nutrients}</div>` : ''}
     </div>
@@ -138,19 +259,19 @@ function openRecipe(r) {
       <div>
         <h2>${r.name}</h2>
         <div class="recipe-meta">
-          <span><i data-lucide="clock"></i> ${r.time}</span>
-          <span><i data-lucide="bar-chart"></i> ${r.difficulty}</span>
+          <span><i data-lucide="clock"></i> ${r.time || ''}</span>
+          <span><i data-lucide="bar-chart"></i> ${r.difficulty || ''}</span>
         </div>
       </div>
     </div>
     ${r.description ? `<p class="recipe-modal-desc">${r.description}</p>` : ''}
     ${n.calories ? `<div class="recipe-macros-bar">
       <div class="rmb-item"><span class="rmb-val">🔥 ${n.calories}</span><span>kcal</span></div>
-      <div class="rmb-item"><span class="rmb-val">💪 ${n.protein}g</span><span>protein</span></div>
-      <div class="rmb-item"><span class="rmb-val">🌾 ${n.carbs}g</span><span>carbs</span></div>
-      <div class="rmb-item"><span class="rmb-val">🥑 ${n.fat}g</span><span>fat</span></div>
+      <div class="rmb-item"><span class="rmb-val">💪 ${n.protein || 0}g</span><span>protein</span></div>
+      <div class="rmb-item"><span class="rmb-val">🌾 ${n.carbs || 0}g</span><span>carbs</span></div>
+      <div class="rmb-item"><span class="rmb-val">🥑 ${n.fat || 0}g</span><span>fat</span></div>
     </div>` : ''}
-    ${r.nutrients_addressed?.length ? `<div class="recipe-tags">${r.nutrients_addressed.map(n=>`<span class="tag">${n}</span>`).join('')}</div>` : ''}
+    ${r.nutrients_addressed?.length ? `<div class="recipe-tags">${r.nutrients_addressed.map(t=>`<span class="tag">${t}</span>`).join('')}</div>` : ''}
     <div class="recipe-sections">
       <div>
         <h4><i data-lucide="list"></i> Ingredients</h4>
@@ -166,40 +287,43 @@ function openRecipe(r) {
   lucide.createIcons();
 }
 
-function closeModal() {
-  document.getElementById('recipeModal').style.display = 'none';
+function closeModal() { document.getElementById('recipeModal').style.display = 'none'; }
+
+// ── Cuisine shortcut ─────────────────────────────────────────────────────
+async function getCuisineRecipe(cuisine) {
+  document.getElementById('recipePrefs').value = `${cuisine} cuisine — authentic, nutritious, traditional recipes`;
+  generateRecipes();
+  window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
+// ── Meal analyzer ─────────────────────────────────────────────────────────
 async function analyzeMeal() {
   const btn = document.getElementById('analyzeBtn');
   const name = document.getElementById('mealName').value.trim();
   const ingredients = document.getElementById('mealIngredients').value.trim();
-  if (!name && !ingredients) { showToast('Enter a meal name or ingredients','error'); return; }
+  if (!name && !ingredients) { showToast('Enter a meal name or ingredients', 'error'); return; }
   btn.disabled = true;
   btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Analyzing...';
   lucide.createIcons();
 
   try {
     const r = await fetch('/api/meal/analyze', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({food_name: name, ingredients})
     });
     const d = await r.json();
-    document.getElementById('analysisText').innerHTML = d.analysis?.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>') || d.error;
+    const text = d.analysis || d.error || 'Could not analyze this meal.';
+    document.getElementById('analysisText').innerHTML = marked.parse(text);
     document.getElementById('analysisResult').style.display = 'block';
+    document.getElementById('analysisResult').scrollIntoView({behavior:'smooth'});
   } catch(e) {
-    showToast('Analysis failed','error');
+    showToast('Analysis failed', 'error');
   }
   btn.disabled = false;
   btn.innerHTML = '<i data-lucide="wand-2"></i> Analyze & Optimize';
   lucide.createIcons();
 }
 
-async function getCuisineRecipe(cuisine) {
-  document.getElementById('recipePrefs').value = `${cuisine} cuisine, authentic and nutritious`;
-  await generateRecipes();
-  document.getElementById('recipesContainer').scrollIntoView({behavior:'smooth'});
-}
+window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
 </script>
 {% endblock %}

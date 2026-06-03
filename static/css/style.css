@@ -488,7 +488,19 @@ body {
 .recipe-meta span { display: flex; align-items: center; gap: 4px; }
 .recipe-meta i { width: 11px; height: 11px; }
 .recipe-nutrients { font-size: 10px; color: var(--accent-teal); background: rgba(0,212,170,0.08); border-radius: 4px; padding: 3px 7px; display: inline-block; }
-.cuisine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+/* Cuisine tabs */
+.cuisine-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.cuisine-tab {
+  padding: 7px 16px; border-radius: 100px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: all var(--transition);
+}
+.cuisine-tab:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.2); }
+.cuisine-tab.active { background: rgba(0,212,170,0.15); border-color: var(--accent-teal); color: var(--accent-teal); }
+.cuisine-region { animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+.cuisine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .cuisine-card {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 16px; text-align: center;
