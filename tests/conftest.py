@@ -1,3 +1,5 @@
+
+
 """
 Shared fixtures for the Chef Builder test suite.
 
@@ -10,7 +12,7 @@ import sys
 
 # ── Override env vars BEFORE any app imports ───────────────────────────────
 os.environ["DATABASE_URL"] = "sqlite:////tmp/test_chefbuilder.db"
-os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-placeholder")
+os.environ.setdefault("GEMINI_API_KEY", "test-key-placeholder")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

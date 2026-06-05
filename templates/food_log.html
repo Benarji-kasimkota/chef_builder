@@ -766,7 +766,7 @@ function useBarcodeFood(foodData) {
   };
   document.getElementById('foodSearch').value = foodData.name;
   document.getElementById('quantity').value = 100;
-  document.getElementById('qtyUnit').textContent = 'g';
+  document.getElementById('qtyUnitSelect').value = 'g';
   document.getElementById('addFoodBtn').disabled = false;
   document.getElementById('previewName').textContent = foodData.name;
   const n = foodData.nutrition;

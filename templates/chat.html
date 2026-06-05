@@ -279,6 +279,13 @@ window.addEventListener('DOMContentLoaded', () => {
     el.innerHTML = marked.parse(el.textContent);
   });
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+  // Auto-send prompt passed via ?prompt= query param (e.g. from mindfulness guided practices)
+  const urlPrompt = new URLSearchParams(window.location.search).get('prompt');
+  if (urlPrompt) {
+    document.getElementById('chatInput').value = urlPrompt;
+    sendMessage();
+  }
 });
 </script>
 {% endblock %}
