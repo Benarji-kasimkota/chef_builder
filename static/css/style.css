@@ -501,7 +501,22 @@ body {
   border-radius: var(--radius); padding: 10px 14px; font-size: 13px; line-height: 1.6;
 }
 .msg-user .msg-content { background: rgba(0,212,170,0.12); border-color: rgba(0,212,170,0.25); color: var(--text-primary); }
-.msg-time { font-size: 10px; color: var(--text-muted); margin-top: 3px; padding: 0 4px; }
+.msg-time { font-size: 10px; color: var(--text-muted); margin-top: 3px; padding: 0 4px; display: flex; align-items: center; gap: 6px; }
+.save-recipe-btn {
+  background: none; border: none; cursor: pointer; padding: 2px 4px;
+  color: var(--text-muted); border-radius: 4px; display: inline-flex; align-items: center;
+  transition: color .2s, background .2s;
+}
+.save-recipe-btn:hover { color: var(--accent); background: rgba(20,184,166,.12); }
+.save-recipe-btn svg { width: 13px; height: 13px; }
+
+.saved-recipe-card { margin-bottom: 1rem; }
+.saved-recipe-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
+.saved-recipe-name { font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 6px; margin: 0 0 2px; }
+.saved-recipe-content { font-size: 13px; line-height: 1.6; max-height: 300px; overflow-y: auto; }
+.saved-recipe-content h1,.saved-recipe-content h2,.saved-recipe-content h3 { font-size: 14px; margin: 0.5rem 0 0.25rem; }
+.saved-recipe-content ul,.saved-recipe-content ol { padding-left: 1.2rem; }
+.saved-recipe-content p { margin: 0.25rem 0; }
 
 .typing-indicator { display: flex; align-items: center; gap: 10px; }
 .typing-bubble {

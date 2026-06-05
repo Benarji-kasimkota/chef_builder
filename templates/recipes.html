@@ -35,6 +35,9 @@
   <button class="rsec-tab" onclick="showSection('analyzer', this)">
     <i data-lucide="scan-search"></i> Analyzer
   </button>
+  <button class="rsec-tab" onclick="showSection('memory', this)">
+    <i data-lucide="bookmark"></i> Recipe Memory
+  </button>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -435,6 +438,30 @@
 </div>
 
 <!-- ══════════════════════════════════════════
+     7. RECIPE MEMORY (SAVED FROM AI COACH)
+══════════════════════════════════════════ -->
+<div class="recipe-section" id="sec-memory" style="display:none">
+  <div class="card" style="margin-bottom:1rem">
+    <div class="gen-header">
+      <div class="gen-icon">📌</div>
+      <div>
+        <h3>Recipe Memory</h3>
+        <p>Recipes saved from your AI Coach conversations</p>
+      </div>
+    </div>
+  </div>
+  <div id="savedRecipesContainer">
+    <div class="empty-state" id="savedRecipesEmpty" style="display:none">
+      <div style="font-size:3rem;margin-bottom:1rem">📂</div>
+      <h3>No saved recipes yet</h3>
+      <p>Chat with the AI Coach and click the bookmark icon on any recipe response to save it here.</p>
+      <a href="/chat" class="btn btn-primary" style="margin-top:1rem"><i data-lucide="message-circle"></i> Open AI Coach</a>
+    </div>
+    <div id="savedRecipesList" class="recipes-grid"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
      RECIPE MODAL
 ══════════════════════════════════════════ -->
 <div class="modal-overlay" id="recipeModal" style="display:none" onclick="if(event.target===this)closeModal()">
@@ -460,6 +487,7 @@ function showSection(id, btn) {
   document.getElementById('sec-' + id).style.display = 'block';
   btn.classList.add('active');
   lucide.createIcons();
+  if (id === 'memory') loadSavedRecipes();
 }
 
 // ── Cuisine region tabs ────────────────────────────────────────────────
@@ -987,6 +1015,48 @@ function openRecipe(r) {
 }
 
 function closeModal() { document.getElementById('recipeModal').style.display = 'none'; }
+
+// ══════════════ RECIPE MEMORY ══════════════
+async function loadSavedRecipes() {
+  try {
+    const r = await fetch('/api/recipes/saved');
+    const recipes = await r.json();
+    const list = document.getElementById('savedRecipesList');
+    const empty = document.getElementById('savedRecipesEmpty');
+    if (!recipes.length) {
+      empty.style.display = 'block';
+      list.innerHTML = '';
+    } else {
+      empty.style.display = 'none';
+      list.innerHTML = recipes.map(rec => `
+        <div class="saved-recipe-card card">
+          <div class="saved-recipe-header">
+            <div>
+              <h4 class="saved-recipe-name"><i data-lucide="bookmark"></i> ${rec.name}</h4>
+              <span class="text-muted" style="font-size:12px">${rec.created_at}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="deleteSavedRecipe(${rec.id}, this)" title="Delete">
+              <i data-lucide="trash-2"></i>
+            </button>
+          </div>
+          <div class="saved-recipe-content">${marked.parse(rec.content)}</div>
+        </div>`).join('');
+      lucide.createIcons();
+    }
+  } catch(e) { console.error('Failed to load saved recipes', e); }
+}
+
+async function deleteSavedRecipe(id, btn) {
+  if (!confirm('Delete this saved recipe?')) return;
+  try {
+    await fetch('/api/recipes/saved/' + id, {method: 'DELETE'});
+    btn.closest('.saved-recipe-card').remove();
+    const remaining = document.querySelectorAll('.saved-recipe-card').length;
+    if (!remaining) {
+      document.getElementById('savedRecipesEmpty').style.display = 'block';
+    }
+  } catch(e) { alert('Failed to delete recipe'); }
+}
 
 window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
 </script>

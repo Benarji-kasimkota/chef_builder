@@ -13,6 +13,9 @@
       <p>Your personal wellness expert · Nutrition · Fitness · Mindfulness · Recipes</p>
     </div>
     <div class="chat-status"><span class="status-dot"></span> Online</div>
+    <button class="btn btn-ghost btn-sm" onclick="clearChat()" title="Clear conversation and start fresh" style="margin-left:auto">
+      <i data-lucide="trash-2"></i> Clear
+    </button>
   </div>
 
   <!-- Language selector -->
@@ -76,7 +79,15 @@
         {% endif %}
         <div class="msg-bubble">
           <div class="msg-content">{{ msg.content }}</div>
-          <div class="msg-time">{{ msg.created_at.strftime('%I:%M %p') }}</div>
+          <div class="msg-time">
+            {{ msg.created_at.strftime('%I:%M %p') }}
+            {% if msg.role == 'assistant' %}
+            <button class="save-recipe-btn" onclick="openSaveModal(this)" title="Save as recipe"
+              data-content="{{ msg.content | replace('"', '&quot;') | replace("'", '&#39;') }}">
+              <i data-lucide="bookmark"></i>
+            </button>
+            {% endif %}
+          </div>
         </div>
         {% if msg.role == 'user' %}
         <div class="msg-avatar-sm user-avatar">{{ profile.name[0]|upper if profile else 'U' }}</div>
@@ -93,6 +104,30 @@
     <div class="typing-indicator" id="typingIndicator" style="display:none">
       <div class="msg-avatar-sm">🤖</div>
       <div class="typing-bubble"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+
+  <!-- Save Recipe Modal -->
+  <div class="modal-overlay" id="saveRecipeModal" style="display:none" onclick="if(event.target===this)closeSaveModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h3><i data-lucide="bookmark"></i> Save Recipe</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeSaveModal()"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Recipe Name</label>
+          <input type="text" id="saveRecipeName" class="input" placeholder="e.g. Chicken Stir Fry, Dal Tadka..."/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Content Preview</label>
+          <textarea id="saveRecipeContent" class="input textarea" rows="5" style="font-size:12px;opacity:0.8"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeSaveModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveRecipe()"><i data-lucide="bookmark"></i> Save Recipe</button>
+      </div>
     </div>
   </div>
 
@@ -228,16 +263,80 @@ function appendMessage(role, content) {
   const avatar = isUser
     ? `<div class="msg-avatar-sm user-avatar">{{ profile.name[0]|upper if profile else 'U' }}</div>`
     : '<div class="msg-avatar-sm">🤖</div>';
+  const saveBtn = !isUser
+    ? `<button class="save-recipe-btn" onclick="openSaveModal(this)" title="Save as recipe"
+         data-content="${content.replace(/"/g,'&quot;').replace(/'/g,'&#39;')}">
+         <i data-lucide="bookmark"></i>
+       </button>`
+    : '';
   const html = `<div class="chat-msg ${isUser ? 'msg-user' : 'msg-ai'}">
     ${!isUser ? avatar : ''}
     <div class="msg-bubble">
       <div class="msg-content">${renderContent(role, content)}</div>
-      <div class="msg-time">${time}</div>
+      <div class="msg-time">${time} ${saveBtn}</div>
     </div>
     ${isUser ? avatar : ''}
   </div>`;
   document.getElementById('typingIndicator').insertAdjacentHTML('beforebegin', html);
+  lucide.createIcons();
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+async function clearChat() {
+  if (!confirm('Clear the entire conversation and start fresh?')) return;
+  try {
+    await fetch('/api/chat/clear', {method: 'DELETE'});
+    // Remove all messages from UI except typing indicator
+    document.querySelectorAll('.chat-msg').forEach(el => el.remove());
+    document.querySelector('.chat-welcome')?.remove();
+    // Re-show welcome
+    document.getElementById('typingIndicator').insertAdjacentHTML('beforebegin', `
+      <div class="chat-welcome">
+        <div class="welcome-icon">🌟</div>
+        <h3>Conversation cleared!</h3>
+        <p>Start fresh — ask me anything about nutrition, recipes, fitness, or wellness.</p>
+      </div>`);
+    document.getElementById('quickPrompts').style.display = 'block';
+    showToast('Chat cleared!');
+  } catch(e) {
+    showToast('Failed to clear chat', 'error');
+  }
+}
+
+function openSaveModal(btn) {
+  const content = btn.getAttribute('data-content') || btn.closest('.msg-bubble').querySelector('.msg-content').textContent;
+  // Extract first line as candidate recipe name
+  const firstLine = content.split('\n').find(l => l.trim().length > 3) || 'Recipe from AI Coach';
+  const name = firstLine.replace(/^#+\s*/, '').replace(/\*\*/g, '').substring(0, 80);
+  document.getElementById('saveRecipeName').value = name;
+  document.getElementById('saveRecipeContent').value = content;
+  document.getElementById('saveRecipeModal').style.display = 'flex';
+  lucide.createIcons();
+  document.getElementById('saveRecipeName').select();
+}
+
+function closeSaveModal() {
+  document.getElementById('saveRecipeModal').style.display = 'none';
+}
+
+async function saveRecipe() {
+  const name = document.getElementById('saveRecipeName').value.trim();
+  const content = document.getElementById('saveRecipeContent').value.trim();
+  if (!name) { showToast('Enter a recipe name', 'error'); return; }
+  try {
+    const r = await fetch('/api/recipes/saved', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, content, source: 'ai_coach'})
+    });
+    const d = await r.json();
+    if (d.success) {
+      closeSaveModal();
+      showToast(`"${name}" saved to Recipe Memory! 📌`);
+    }
+  } catch(e) {
+    showToast('Failed to save recipe', 'error');
+  }
 }
 
 async function sendMessage() {
@@ -271,6 +370,17 @@ async function sendMessage() {
   }
   document.getElementById('sendBtn').disabled = false;
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function showToast(msg, type) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:${type==='error'?'#ef4444':'var(--accent)'};color:#fff;padding:10px 20px;
+    border-radius:8px;font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.3);
+    animation:msgIn .3s ease`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
 }
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -9,7 +9,7 @@ from collections import defaultdict
 from flask import Flask, render_template, request, jsonify, session, Response
 from dotenv import load_dotenv
 from database import db
-from models import UserProfile, FoodLog, MindfulnessLog, WeightLog, WaterLog, ChatMessage
+from models import UserProfile, FoodLog, MindfulnessLog, WeightLog, WaterLog, ChatMessage, SavedRecipe
 from nutrition_data import (
     FOOD_DATABASE, RDA, VITAMIN_NAMES, VITAMIN_UNITS, MINERAL_NAMES,
     AMINO_ACID_NAMES, AMINO_ACID_ROLES, search_food_local,
@@ -1009,6 +1009,46 @@ def export_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename=chefbuilder_food_log_{today}.csv"}
     )
+
+
+# ──────────────────────────────────────────────
+#  API — SAVED RECIPES
+# ──────────────────────────────────────────────
+
+@app.route("/api/recipes/saved", methods=["GET", "POST"])
+def saved_recipes_api():
+    if request.method == "GET":
+        recipes = SavedRecipe.query.order_by(SavedRecipe.created_at.desc()).all()
+        return jsonify([{
+            "id": r.id, "name": r.name, "content": r.content,
+            "source": r.source, "created_at": r.created_at.strftime("%b %d, %Y")
+        } for r in recipes])
+    data = request.json
+    if not data or not data.get("name") or not data.get("content"):
+        return jsonify({"error": "name and content required"}), 400
+    recipe = SavedRecipe(
+        name=data["name"].strip(),
+        content=data["content"].strip(),
+        source=data.get("source", "ai_coach")
+    )
+    db.session.add(recipe)
+    db.session.commit()
+    return jsonify({"success": True, "id": recipe.id})
+
+
+@app.route("/api/recipes/saved/<int:recipe_id>", methods=["DELETE"])
+def delete_saved_recipe(recipe_id):
+    recipe = SavedRecipe.query.get_or_404(recipe_id)
+    db.session.delete(recipe)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@app.route("/api/chat/clear", methods=["DELETE"])
+def clear_chat():
+    ChatMessage.query.delete()
+    db.session.commit()
+    return jsonify({"success": True})
 
 
 # ──────────────────────────────────────────────

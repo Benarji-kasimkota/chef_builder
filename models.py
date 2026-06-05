@@ -84,3 +84,12 @@ class ChatMessage(db.Model):
     content = db.Column(db.Text)
     category = db.Column(db.String(30), default="general")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SavedRecipe(db.Model):
+    __tablename__ = "saved_recipe"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    source = db.Column(db.String(50), default="ai_coach")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
