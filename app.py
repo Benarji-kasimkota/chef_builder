@@ -1,21 +1,22 @@
 import os
 import io
+import re
 import csv
 import json
 import base64
 import httpx
 from datetime import date, timedelta, datetime
 from collections import defaultdict
-from flask import Flask, render_template, request, jsonify, session, Response
+from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 from store import (
     init_store,
     get_profile, save_profile,
-    get_today_logs, get_food_logs_for_date, get_food_logs_range,
+    get_today_logs, get_food_logs_range,
     add_food_log, delete_food_log, get_streak,
     get_water_today, get_water_logs_today, get_water_logs_range,
     add_water_log, delete_water_log,
-    get_weight_for_date, get_weight_range, get_weight_history, upsert_weight_log,
+    get_weight_range, get_weight_history, upsert_weight_log,
     get_mindfulness_today, get_mindfulness_logs, get_mindfulness_for_range,
     add_mindfulness_log, delete_mindfulness_log,
     get_chat_messages, add_chat_message, clear_chat_messages,
@@ -52,13 +53,6 @@ init_store(app)
 def logs_to_nutrition_list(logs):
     # nutrition is pre-scaled to quantity_g when logged; pass quantity=100 so ratio=1
     return [{"quantity": 100, "nutrition": log.nutrition} for log in logs]
-
-
-def get_nutrition_for_date(target_date):
-    logs = get_food_logs_for_date(target_date)
-    if not logs:
-        return None
-    return calculate_nutrition_totals(logs_to_nutrition_list(logs))
 
 
 def get_effective_rda(profile):
@@ -586,7 +580,6 @@ def suggest_recipes():
             deficiencies=deficiencies,
             preferences=preferences
         )
-        import re
         match = re.search(r'\{.*\}', raw, re.DOTALL)
         if match:
             return jsonify(json.loads(match.group()))
@@ -708,12 +701,12 @@ def generate_grocery():
         food_by_date[str(log.date)].append({"quantity": 100, "nutrition": log.nutrition})
 
     rda = get_effective_rda(profile)
-    for d, food_data in food_by_date.items():
+    for food_data in food_by_date.values():
         totals = calculate_nutrition_totals(food_data)
-        d = calculate_deficiencies(totals, rda)
-        for k, v in d.get("vitamins", {}).items():
+        defics = calculate_deficiencies(totals, rda)
+        for k, v in defics.get("vitamins", {}).items():
             all_deficiencies["vitamins"][k] = all_deficiencies["vitamins"].get(k, 0) + v
-        for k, v in d.get("minerals", {}).items():
+        for k, v in defics.get("minerals", {}).items():
             all_deficiencies["minerals"][k] = all_deficiencies["minerals"].get(k, 0) + v
 
     try:
