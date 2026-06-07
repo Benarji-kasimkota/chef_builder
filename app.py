@@ -8,8 +8,19 @@ from datetime import date, timedelta, datetime
 from collections import defaultdict
 from flask import Flask, render_template, request, jsonify, session, Response
 from dotenv import load_dotenv
-from database import db
-from models import UserProfile, FoodLog, MindfulnessLog, WeightLog, WaterLog, ChatMessage, SavedRecipe
+from store import (
+    init_store,
+    get_profile, save_profile,
+    get_today_logs, get_food_logs_for_date, get_food_logs_range,
+    add_food_log, delete_food_log, get_streak,
+    get_water_today, get_water_logs_today, get_water_logs_range,
+    add_water_log, delete_water_log,
+    get_weight_for_date, get_weight_range, get_weight_history, upsert_weight_log,
+    get_mindfulness_today, get_mindfulness_logs, get_mindfulness_for_range,
+    add_mindfulness_log, delete_mindfulness_log,
+    get_chat_messages, add_chat_message, clear_chat_messages,
+    get_saved_recipes, add_saved_recipe, delete_saved_recipe,
+)
 from nutrition_data import (
     FOOD_DATABASE, RDA, VITAMIN_NAMES, VITAMIN_UNITS, MINERAL_NAMES,
     AMINO_ACID_NAMES, AMINO_ACID_ROLES, search_food_local,
@@ -21,54 +32,30 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "chefbuilder-dev-secret-2024")
+
+# SQLAlchemy URI still read by store.py's SQLite backend when FIREBASE_CREDENTIALS is unset
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///chefbuilder.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-# SQLite connection pool settings for concurrency
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_size": 10,
-    "max_overflow": 20,
-    "pool_timeout": 30,
-    "connect_args": {"check_same_thread": False, "timeout": 20}
+    "pool_size": 10, "max_overflow": 20, "pool_timeout": 30,
+    "connect_args": {"check_same_thread": False, "timeout": 20},
 }
-db.init_app(app)
 
-# Ensure instance folder exists (required on fresh deployments like Render)
 os.makedirs(app.instance_path, exist_ok=True)
-
-with app.app_context():
-    db.create_all()
-    # Enable WAL mode for SQLite — allows concurrent reads alongside writes
-    from sqlalchemy import text, event
-    from sqlalchemy.engine import Engine
-    import sqlite3
-    @event.listens_for(Engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        if isinstance(dbapi_conn, sqlite3.Connection):
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA synchronous=NORMAL")
-            cursor.execute("PRAGMA cache_size=10000")
-            cursor.close()
-    if not UserProfile.query.first():
-        db.session.add(UserProfile())
-        db.session.commit()
+init_store(app)
 
 
-def get_profile():
-    return UserProfile.query.first()
-
-
-def get_today_logs():
-    return FoodLog.query.filter_by(date=date.today()).order_by(FoodLog.created_at).all()
-
+# ─────────────────────────────────────────────────────────────────────────────
+#  Shared helpers (work with Row objects from both backends)
+# ─────────────────────────────────────────────────────────────────────────────
 
 def logs_to_nutrition_list(logs):
-    # nutrition is already scaled to quantity_g when logged; pass quantity=100 so ratio=1
+    # nutrition is pre-scaled to quantity_g when logged; pass quantity=100 so ratio=1
     return [{"quantity": 100, "nutrition": log.nutrition} for log in logs]
 
 
 def get_nutrition_for_date(target_date):
-    logs = FoodLog.query.filter_by(date=target_date).all()
+    logs = get_food_logs_for_date(target_date)
     if not logs:
         return None
     return calculate_nutrition_totals(logs_to_nutrition_list(logs))
@@ -79,7 +66,6 @@ def get_effective_rda(profile):
         profile.weight_kg, profile.height_cm, profile.age,
         profile.gender, profile.activity_level, profile.goal
     ) if profile else dict(RDA)
-    # Override with custom targets if set
     if profile:
         if profile.custom_calories:
             rda["calories"] = profile.custom_calories
@@ -92,27 +78,9 @@ def get_effective_rda(profile):
     return rda
 
 
-def get_streak():
-    """Count consecutive days with food logged, ending today."""
-    streak = 0
-    cursor = date.today()
-    while True:
-        count = FoodLog.query.filter_by(date=cursor).count()
-        if count == 0:
-            break
-        streak += 1
-        cursor -= timedelta(days=1)
-    return streak
-
-
-def get_water_today():
-    logs = WaterLog.query.filter_by(date=date.today()).all()
-    return sum(log.amount_ml for log in logs)
-
-
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  PAGES
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def dashboard():
@@ -125,7 +93,7 @@ def dashboard():
     deficiencies = calculate_deficiencies(totals, rda)
     cal_pct = min(totals["calories"] / rda["calories"] * 100, 100) if rda["calories"] else 0
     protein_pct = min(totals["protein"] / rda["protein"] * 100, 100) if rda["protein"] else 0
-    mind_today = MindfulnessLog.query.filter_by(date=date.today()).first()
+    mind_today = get_mindfulness_today()
     mind_pct = min((mind_today.duration_minutes / 30) * 100, 100) if mind_today else 0
     water_ml = get_water_today()
     water_goal = profile.water_goal_ml if profile else 2500
@@ -161,8 +129,7 @@ def food_log():
 @app.route("/chat")
 def chat_page():
     profile = get_profile()
-    messages = ChatMessage.query.order_by(ChatMessage.created_at.desc()).limit(50).all()
-    messages = list(reversed(messages))
+    messages = get_chat_messages(limit=50)
     return render_template("chat.html", profile=profile, messages=messages)
 
 
@@ -175,8 +142,8 @@ def recipes_page():
 @app.route("/mindfulness")
 def mindfulness_page():
     profile = get_profile()
-    logs = MindfulnessLog.query.order_by(MindfulnessLog.created_at.desc()).limit(20).all()
-    today_log = MindfulnessLog.query.filter_by(date=date.today()).first()
+    logs = get_mindfulness_logs(limit=20)
+    today_log = get_mindfulness_today()
     return render_template("mindfulness.html", profile=profile, logs=logs, today_log=today_log)
 
 
@@ -210,9 +177,9 @@ def onboarding_page():
     return render_template("onboarding.html", profile=profile)
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — FOOD & NUTRITION
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/food/search")
 def search_food():
@@ -385,24 +352,20 @@ def food_detail():
 @app.route("/api/food/log", methods=["POST"])
 def log_food():
     data = request.json
-    log = FoodLog(
-        date=date.fromisoformat(data.get("date", str(date.today()))),
+    log_id = add_food_log(
+        date_val=date.fromisoformat(data.get("date", str(date.today()))),
         meal_type=data.get("meal_type", "lunch"),
         food_name=data["food_name"],
         food_key=data.get("food_key", ""),
-        quantity_g=float(data.get("quantity_g", 100))
+        quantity_g=float(data.get("quantity_g", 100)),
+        nutrition=data.get("nutrition", {}),
     )
-    log.nutrition = data.get("nutrition", {})
-    db.session.add(log)
-    db.session.commit()
-    return jsonify({"success": True, "id": log.id})
+    return jsonify({"success": True, "id": log_id})
 
 
-@app.route("/api/food/log/<int:log_id>", methods=["DELETE"])
-def delete_food_log(log_id):
-    log = FoodLog.query.get_or_404(log_id)
-    db.session.delete(log)
-    db.session.commit()
+@app.route("/api/food/log/<log_id>", methods=["DELETE"])
+def delete_food_log_route(log_id):
+    delete_food_log(log_id)
     return jsonify({"success": True})
 
 
@@ -430,16 +393,11 @@ def calendar_data():
     rda = get_effective_rda(profile)
 
     logs_by_date = defaultdict(list)
-    all_logs = FoodLog.query.filter(FoodLog.date >= start, FoodLog.date <= end).all()
-    for log in all_logs:
-        logs_by_date[str(log.date)].append({
-            "quantity": 100, "nutrition": log.nutrition
-        })
+    for log in get_food_logs_range(start, end):
+        logs_by_date[str(log.date)].append({"quantity": 100, "nutrition": log.nutrition})
 
     mind_by_date = {}
-    mind_logs = MindfulnessLog.query.filter(
-        MindfulnessLog.date >= start, MindfulnessLog.date <= end).all()
-    for ml in mind_logs:
+    for ml in get_mindfulness_for_range(start, end):
         mind_by_date[str(ml.date)] = ml.duration_minutes
 
     result = {}
@@ -474,21 +432,14 @@ def progress_history():
     rda = get_effective_rda(profile)
 
     logs_by_date = defaultdict(list)
-    all_logs = FoodLog.query.filter(FoodLog.date >= start, FoodLog.date <= today).all()
-    for log in all_logs:
-        logs_by_date[str(log.date)].append({
-            "quantity": 100, "nutrition": log.nutrition
-        })
+    for log in get_food_logs_range(start, today):
+        logs_by_date[str(log.date)].append({"quantity": 100, "nutrition": log.nutrition})
 
     water_by_date = defaultdict(int)
-    water_logs = WaterLog.query.filter(WaterLog.date >= start, WaterLog.date <= today).all()
-    for wl in water_logs:
+    for wl in get_water_logs_range(start, today):
         water_by_date[str(wl.date)] += wl.amount_ml
 
-    weight_logs = WeightLog.query.filter(
-        WeightLog.date >= start, WeightLog.date <= today
-    ).order_by(WeightLog.date).all()
-    weight_by_date = {str(wl.date): wl.weight_kg for wl in weight_logs}
+    weight_by_date = {str(wl.date): wl.weight_kg for wl in get_weight_range(start, today)}
 
     result = []
     cursor = start
@@ -517,16 +468,16 @@ def streak_api():
     return jsonify({"streak": get_streak()})
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — WATER
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/water/today")
 def water_today():
     profile = get_profile()
     total = get_water_today()
     goal = profile.water_goal_ml if profile else 2500
-    logs = WaterLog.query.filter_by(date=date.today()).order_by(WaterLog.created_at).all()
+    logs = get_water_logs_today()
     return jsonify({
         "total_ml": total,
         "goal_ml": goal,
@@ -540,59 +491,46 @@ def water_today():
 def log_water():
     data = request.json
     amount = int(data.get("amount_ml", 250))
-    log = WaterLog(date=date.today(), amount_ml=amount)
-    db.session.add(log)
-    db.session.commit()
+    log_id = add_water_log(date.today(), amount)
     total = get_water_today()
     profile = get_profile()
     goal = profile.water_goal_ml if profile else 2500
-    return jsonify({"success": True, "id": log.id, "total_ml": total,
+    return jsonify({"success": True, "id": log_id, "total_ml": total,
                     "pct": round(min(total / goal * 100, 100), 1)})
 
 
-@app.route("/api/water/log/<int:log_id>", methods=["DELETE"])
-def delete_water_log(log_id):
-    log = WaterLog.query.get_or_404(log_id)
-    db.session.delete(log)
-    db.session.commit()
+@app.route("/api/water/log/<log_id>", methods=["DELETE"])
+def delete_water_log_route(log_id):
+    delete_water_log(log_id)
     return jsonify({"success": True})
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — WEIGHT
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/weight/log", methods=["POST"])
 def log_weight():
     data = request.json
-    existing = WeightLog.query.filter_by(date=date.today()).first()
-    if existing:
-        existing.weight_kg = float(data["weight_kg"])
-        existing.notes = data.get("notes", "")
-    else:
-        db.session.add(WeightLog(
-            date=date.fromisoformat(data.get("date", str(date.today()))),
-            weight_kg=float(data["weight_kg"]),
-            notes=data.get("notes", "")
-        ))
-    db.session.commit()
-    # Update profile weight too
-    profile = get_profile()
-    if profile:
-        profile.weight_kg = float(data["weight_kg"])
-        db.session.commit()
+    weight_kg = float(data["weight_kg"])
+    upsert_weight_log(
+        date.fromisoformat(data.get("date", str(date.today()))),
+        weight_kg,
+        data.get("notes", "")
+    )
+    save_profile({"weight_kg": weight_kg})
     return jsonify({"success": True})
 
 
 @app.route("/api/weight/history")
 def weight_history():
-    logs = WeightLog.query.order_by(WeightLog.date.desc()).limit(30).all()
-    return jsonify([{"date": str(l.date), "weight_kg": l.weight_kg} for l in reversed(logs)])
+    logs = get_weight_history(limit=30)
+    return jsonify([{"date": str(l.date), "weight_kg": l.weight_kg} for l in logs])
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — AI FEATURES
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/chat", methods=["POST"])
 def chat_api():
@@ -603,10 +541,8 @@ def chat_api():
     if not user_message:
         return jsonify({"error": "Empty message"}), 400
 
-    db.session.add(ChatMessage(role="user", content=user_message, category=category))
-    db.session.commit()
-    history = ChatMessage.query.order_by(ChatMessage.created_at.desc()).limit(20).all()
-    history = list(reversed(history))
+    add_chat_message("user", user_message, category)
+    history = get_chat_messages(limit=20)
     messages = [{"role": m.role, "content": m.content} for m in history]
 
     profile = get_profile()
@@ -614,7 +550,6 @@ def chat_api():
     totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
     rda = get_effective_rda(profile)
     deficiencies = calculate_deficiencies(totals, rda)
-    # Inject language instruction if user explicitly selected one
     if language:
         messages[-1]["content"] = f"[Respond in {language}] {messages[-1]['content']}"
 
@@ -629,10 +564,8 @@ def chat_api():
     except Exception as e:
         reply = f"I'm having trouble connecting right now. Please check your API key. Error: {str(e)}"
 
-    msg = ChatMessage(role="assistant", content=reply, category=category)
-    db.session.add(msg)
-    db.session.commit()
-    return jsonify({"reply": reply, "id": msg.id})
+    msg_id = add_chat_message("assistant", reply, category)
+    return jsonify({"reply": reply, "id": msg_id})
 
 
 @app.route("/api/recipes/suggest", methods=["POST"])
@@ -725,17 +658,26 @@ def weekly_report():
     start = today - timedelta(days=6)
 
     profile = get_profile()
+
+    food_by_date = defaultdict(list)
+    for log in get_food_logs_range(start, today):
+        food_by_date[str(log.date)].append({"quantity": 100, "nutrition": log.nutrition})
+
+    water_by_date = defaultdict(int)
+    for wl in get_water_logs_range(start, today):
+        water_by_date[str(wl.date)] += wl.amount_ml
+
     week_data = []
     cursor = start
     while cursor <= today:
-        logs = FoodLog.query.filter_by(date=cursor).all()
-        totals = calculate_nutrition_totals(logs_to_nutrition_list(logs)) if logs else {}
-        water = sum(w.amount_ml for w in WaterLog.query.filter_by(date=cursor).all())
+        d = str(cursor)
+        food_data = food_by_date.get(d, [])
+        totals = calculate_nutrition_totals(food_data) if food_data else {}
         week_data.append({
             "date": cursor.strftime("%A %b %d"),
             "calories": totals.get("calories", 0),
             "protein": totals.get("protein", 0),
-            "water_ml": water
+            "water_ml": water_by_date.get(d, 0)
         })
         cursor += timedelta(days=1)
 
@@ -760,18 +702,19 @@ def generate_grocery():
     today = date.today()
     start = today - timedelta(days=6)
     all_deficiencies = {"vitamins": {}, "minerals": {}}
-    cursor = start
-    while cursor <= today:
-        logs = FoodLog.query.filter_by(date=cursor).all()
-        if logs:
-            totals = calculate_nutrition_totals(logs_to_nutrition_list(logs))
-            rda = get_effective_rda(profile)
-            d = calculate_deficiencies(totals, rda)
-            for k, v in d.get("vitamins", {}).items():
-                all_deficiencies["vitamins"][k] = all_deficiencies["vitamins"].get(k, 0) + v
-            for k, v in d.get("minerals", {}).items():
-                all_deficiencies["minerals"][k] = all_deficiencies["minerals"].get(k, 0) + v
-        cursor += timedelta(days=1)
+
+    food_by_date = defaultdict(list)
+    for log in get_food_logs_range(start, today):
+        food_by_date[str(log.date)].append({"quantity": 100, "nutrition": log.nutrition})
+
+    rda = get_effective_rda(profile)
+    for d, food_data in food_by_date.items():
+        totals = calculate_nutrition_totals(food_data)
+        d = calculate_deficiencies(totals, rda)
+        for k, v in d.get("vitamins", {}).items():
+            all_deficiencies["vitamins"][k] = all_deficiencies["vitamins"].get(k, 0) + v
+        for k, v in d.get("minerals", {}).items():
+            all_deficiencies["minerals"][k] = all_deficiencies["minerals"].get(k, 0) + v
 
     try:
         result = ai_service.generate_grocery_list(
@@ -914,37 +857,33 @@ def dosha_recipes():
         return jsonify({"error": str(e)}), 500
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — MINDFULNESS
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/mindfulness/log", methods=["POST"])
 def log_mindfulness():
     data = request.json
-    log = MindfulnessLog(
-        date=date.fromisoformat(data.get("date", str(date.today()))),
+    log_id = add_mindfulness_log(
+        date_val=date.fromisoformat(data.get("date", str(date.today()))),
         activity_type=data.get("activity_type", "meditation"),
         duration_minutes=int(data.get("duration_minutes", 0)),
         notes=data.get("notes", ""),
         mood_before=int(data.get("mood_before", 5)),
-        mood_after=int(data.get("mood_after", 5))
+        mood_after=int(data.get("mood_after", 5)),
     )
-    db.session.add(log)
-    db.session.commit()
-    return jsonify({"success": True, "id": log.id})
+    return jsonify({"success": True, "id": log_id})
 
 
-@app.route("/api/mindfulness/log/<int:log_id>", methods=["DELETE"])
-def delete_mindfulness_log(log_id):
-    log = MindfulnessLog.query.get_or_404(log_id)
-    db.session.delete(log)
-    db.session.commit()
+@app.route("/api/mindfulness/log/<log_id>", methods=["DELETE"])
+def delete_mindfulness_log_route(log_id):
+    delete_mindfulness_log(log_id)
     return jsonify({"success": True})
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — PROFILE
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/profile", methods=["GET", "POST"])
 def profile_api():
@@ -960,34 +899,33 @@ def profile_api():
             "water_goal_ml": profile.water_goal_ml
         })
     data = request.json
+    updates = {}
     for field in ["name", "gender", "activity_level", "goal", "dietary_preference", "allergies"]:
         if field in data:
-            setattr(profile, field, data[field])
+            updates[field] = data[field]
     for field in ["age", "custom_calories", "custom_protein", "custom_carbs",
                   "custom_fat", "water_goal_ml"]:
         if field in data:
-            setattr(profile, field, int(data[field]))
+            updates[field] = int(data[field])
     for field in ["weight_kg", "height_cm"]:
         if field in data:
-            setattr(profile, field, float(data[field]))
+            updates[field] = float(data[field])
     if "onboarding_complete" in data:
-        profile.onboarding_complete = bool(data["onboarding_complete"])
-    db.session.commit()
+        updates["onboarding_complete"] = bool(data["onboarding_complete"])
+    save_profile(updates)
     return jsonify({"success": True})
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — EXPORT
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/export/csv")
 def export_csv():
     days = int(request.args.get("days", 30))
     today = date.today()
     start = today - timedelta(days=days - 1)
-    logs = FoodLog.query.filter(
-        FoodLog.date >= start, FoodLog.date <= today
-    ).order_by(FoodLog.date, FoodLog.created_at).all()
+    logs = sorted(get_food_logs_range(start, today), key=lambda l: (l.date, l.created_at))
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -1011,14 +949,14 @@ def export_csv():
     )
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  API — SAVED RECIPES
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/recipes/saved", methods=["GET", "POST"])
 def saved_recipes_api():
     if request.method == "GET":
-        recipes = SavedRecipe.query.order_by(SavedRecipe.created_at.desc()).all()
+        recipes = get_saved_recipes()
         return jsonify([{
             "id": r.id, "name": r.name, "content": r.content,
             "source": r.source, "created_at": r.created_at.strftime("%b %d, %Y")
@@ -1026,34 +964,29 @@ def saved_recipes_api():
     data = request.json
     if not data or not data.get("name") or not data.get("content"):
         return jsonify({"error": "name and content required"}), 400
-    recipe = SavedRecipe(
+    recipe_id = add_saved_recipe(
         name=data["name"].strip(),
         content=data["content"].strip(),
-        source=data.get("source", "ai_coach")
+        source=data.get("source", "ai_coach"),
     )
-    db.session.add(recipe)
-    db.session.commit()
-    return jsonify({"success": True, "id": recipe.id})
+    return jsonify({"success": True, "id": recipe_id})
 
 
-@app.route("/api/recipes/saved/<int:recipe_id>", methods=["DELETE"])
-def delete_saved_recipe(recipe_id):
-    recipe = SavedRecipe.query.get_or_404(recipe_id)
-    db.session.delete(recipe)
-    db.session.commit()
+@app.route("/api/recipes/saved/<recipe_id>", methods=["DELETE"])
+def delete_saved_recipe_route(recipe_id):
+    delete_saved_recipe(recipe_id)
     return jsonify({"success": True})
 
 
 @app.route("/api/chat/clear", methods=["DELETE"])
 def clear_chat():
-    ChatMessage.query.delete()
-    db.session.commit()
+    clear_chat_messages()
     return jsonify({"success": True})
 
 
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 #  TEMPLATE FILTERS & CONTEXT
-# ──────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 @app.template_filter("pct_color")
 def pct_color(pct):
