@@ -693,7 +693,7 @@ def analyze_meal():
 
 @app.route("/api/meal/image", methods=["POST"])
 def analyze_meal_image():
-    """Analyze a meal photo using Claude Vision."""
+    """Analyze a meal photo using Gemini Vision."""
     if "image" not in request.files:
         return jsonify({"error": "No image provided"}), 400
     file = request.files["image"]

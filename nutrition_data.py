@@ -534,9 +534,17 @@ def calculate_personal_rda(weight_kg: float, height_cm: float, age: int,
     else:
         calorie_target = tdee
     protein_target = weight_kg * 1.6 if goal == "gain" else weight_kg * 1.2
+    # Scale macros proportionally from the personalised calorie target.
+    # Ratios: carbs 55% of kcal (/4), fat 35% (/9), fiber 14g per 1000 kcal.
+    carb_target = round(calorie_target * 0.55 / 4)
+    fat_target = round(calorie_target * 0.35 / 9)
+    fiber_target = round(calorie_target * 14 / 1000)
     personal_rda = RDA.copy()
     personal_rda["calories"] = round(calorie_target)
     personal_rda["protein"] = round(protein_target)
+    personal_rda["carbs"] = carb_target
+    personal_rda["fat"] = fat_target
+    personal_rda["fiber"] = fiber_target
     personal_rda["amino_acids"] = {
         k: round(v * (weight_kg / 70), 2) for k, v in RDA["amino_acids"].items()
     }
