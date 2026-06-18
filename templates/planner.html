@@ -59,6 +59,29 @@
   <h3 style="margin-bottom:0.5rem">No meal plan yet</h3>
   <p class="text-muted">Click "Generate Meal Plan" to get a personalized AI-powered plan based on your nutritional needs.</p>
 </div>
+
+<!-- Recipe Modal -->
+<div id="recipeModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:20px;overflow-y:auto" onclick="if(event.target===this)closeRecipeModal()">
+  <div style="max-width:600px;margin:40px auto;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    <div style="padding:24px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+      <div style="flex:1">
+        <div id="modalEmoji" style="font-size:2.5rem;line-height:1;margin-bottom:8px">🍽️</div>
+        <h2 id="modalName" style="font-size:1.3rem;font-weight:700;color:var(--text-primary);margin:0 0 8px"></h2>
+        <div id="modalMeta" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+      </div>
+      <button onclick="closeRecipeModal()" style="flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:50%;width:36px;height:36px;cursor:pointer;color:var(--text-secondary);font-size:18px;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+    <div id="modalLoading" style="padding:40px 24px;text-align:center;color:var(--text-muted)">
+      <div style="font-size:2.5rem;margin-bottom:12px">👨‍🍳</div>
+      <p>Fetching recipe instructions…</p>
+    </div>
+    <div id="modalContent" style="display:none;padding:0 24px 24px">
+      <div id="modalIngredients" style="margin-top:20px"></div>
+      <div id="modalSteps" style="margin-top:20px"></div>
+      <div id="modalTip" style="margin-top:16px"></div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -125,7 +148,7 @@ function renderPlan(data) {
       </div>
       <div class="plan-meals">
         ${Object.entries(day.meals || {}).map(([mealType, meal]) => `
-          <div class="plan-meal-item">
+          <div class="plan-meal-item" onclick="openRecipeModal(${JSON.stringify(JSON.stringify(meal))})" style="cursor:pointer" title="Tap for recipe">
             <div class="plan-meal-icon">${mealEmojis[mealType] || '🍽️'}</div>
             <div class="plan-meal-info">
               <div class="plan-meal-type">${mealType.charAt(0).toUpperCase()+mealType.slice(1)}</div>
@@ -136,6 +159,7 @@ function renderPlan(data) {
               <span>${meal.calories || 0} kcal</span>
               <span>${meal.protein || 0}g P</span>
               <span>${meal.prep_time || ''}</span>
+              <span style="color:var(--accent-teal);font-size:11px">📖 Recipe</span>
             </div>
           </div>
         `).join('')}
@@ -144,6 +168,87 @@ function renderPlan(data) {
   `).join('');
   lucide.createIcons();
 }
+
+async function openRecipeModal(mealJson) {
+  const meal = typeof mealJson === 'string' ? JSON.parse(mealJson) : mealJson;
+  const modal = document.getElementById('recipeModal');
+  document.getElementById('modalEmoji').textContent = '🍽️';
+  document.getElementById('modalName').textContent = meal.name || 'Recipe';
+  document.getElementById('modalMeta').innerHTML = '';
+  document.getElementById('modalLoading').style.display = 'block';
+  document.getElementById('modalContent').style.display = 'none';
+  modal.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const r = await fetch('/api/meal-recipe', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name: meal.name, description: meal.description || ''})
+    });
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('modalEmoji').textContent = data.emoji || '🍽️';
+    document.getElementById('modalName').textContent = data.name || meal.name;
+
+    const meta = [
+      data.servings ? `👥 ${data.servings} servings` : '',
+      data.prep_time ? `⏱ Prep: ${data.prep_time}` : '',
+      data.cook_time ? `🔥 Cook: ${data.cook_time}` : '',
+      data.calories_per_serving ? `⚡ ${data.calories_per_serving} kcal` : '',
+      data.protein_per_serving ? `💪 ${data.protein_per_serving}g protein` : ''
+    ].filter(Boolean);
+    document.getElementById('modalMeta').innerHTML = meta.map(m =>
+      `<span class="stat-pill" style="font-size:11px">${m}</span>`
+    ).join('');
+
+    const ings = data.ingredients || [];
+    document.getElementById('modalIngredients').innerHTML = ings.length ? `
+      <h4 style="color:var(--text-primary);margin-bottom:10px;font-size:0.9rem;font-weight:700;display:flex;align-items:center;gap:6px">
+        🛒 Ingredients
+      </h4>
+      <ul style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        ${ings.map(i => `<li style="padding:6px 10px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:13px;color:var(--text-secondary)">• ${i}</li>`).join('')}
+      </ul>` : '';
+
+    const steps = data.steps || [];
+    document.getElementById('modalSteps').innerHTML = steps.length ? `
+      <h4 style="color:var(--text-primary);margin-bottom:10px;font-size:0.9rem;font-weight:700">
+        👨‍🍳 Instructions
+      </h4>
+      <ol style="padding-left:0;margin:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+        ${steps.map((s, idx) => `
+          <li style="display:flex;gap:12px;align-items:flex-start">
+            <span style="flex-shrink:0;width:26px;height:26px;border-radius:50%;background:rgba(0,212,170,0.15);border:1px solid var(--accent-teal);color:var(--accent-teal);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">${idx+1}</span>
+            <span style="font-size:13px;color:var(--text-secondary);padding-top:4px">${s.replace(/^Step \d+[:\-\s]*/i,'')}</span>
+          </li>`).join('')}
+      </ol>` : '';
+
+    if (data.tips) {
+      document.getElementById('modalTip').innerHTML = `
+        <div style="padding:12px 14px;background:rgba(0,212,170,0.07);border:1px solid rgba(0,212,170,0.25);border-radius:8px;font-size:13px;color:var(--text-secondary)">
+          💡 <strong style="color:var(--accent-teal)">Tip:</strong> ${data.tips}
+        </div>`;
+    } else {
+      document.getElementById('modalTip').innerHTML = '';
+    }
+
+    document.getElementById('modalLoading').style.display = 'none';
+    document.getElementById('modalContent').style.display = 'block';
+  } catch(e) {
+    document.getElementById('modalLoading').innerHTML = `
+      <div style="font-size:2rem;margin-bottom:12px">⚠️</div>
+      <p style="color:var(--accent-amber)">Could not load recipe. Please try again.</p>`;
+  }
+}
+
+function closeRecipeModal() {
+  document.getElementById('recipeModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeRecipeModal(); });
 
 window.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();

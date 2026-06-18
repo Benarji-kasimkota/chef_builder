@@ -442,6 +442,35 @@ Generate all {days} days. Keep meals practical and delicious."""
     return {"days": [], "plan_summary": "Could not generate plan", "daily_targets": {}}
 
 
+def get_meal_recipe(meal_name: str, meal_description: str = "", dietary_preference: str = "omnivore") -> dict:
+    prompt = f"""Give me a full recipe for: {meal_name}
+{f"Context: {meal_description}" if meal_description else ""}
+Dietary preference: {dietary_preference}
+
+Return JSON only:
+{{
+  "name": "{meal_name}",
+  "emoji": "🍽️",
+  "servings": "2",
+  "prep_time": "10 min",
+  "cook_time": "20 min",
+  "calories_per_serving": 400,
+  "protein_per_serving": 30,
+  "ingredients": ["200g chicken breast", "2 tbsp olive oil", "..."],
+  "steps": [
+    "Step 1: ...",
+    "Step 2: ...",
+    "Step 3: ..."
+  ],
+  "tips": "Optional pro tip or substitution suggestion."
+}}"""
+    text = _generate(prompt)
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        return json.loads(match.group())
+    return {"name": meal_name, "ingredients": [], "steps": ["Recipe details unavailable."], "tips": ""}
+
+
 def generate_from_ingredients(ingredients: list, dietary_prefs: str = "",
                                cuisine_hint: str = "") -> dict:
     """

@@ -747,6 +747,22 @@ def generate_meal_plan():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/meal-recipe", methods=["POST"])
+def get_meal_recipe():
+    data = request.json or {}
+    meal_name = data.get("name", "").strip()
+    meal_description = data.get("description", "").strip()
+    if not meal_name:
+        return jsonify({"error": "Meal name required"}), 400
+    profile = get_profile()
+    dietary_preference = profile.dietary_preference if profile else "omnivore"
+    try:
+        result = ai_service.get_meal_recipe(meal_name, meal_description, dietary_preference)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/dish/calculate", methods=["POST"])
 def calculate_dish():
     data = request.json or {}

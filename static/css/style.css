@@ -1219,7 +1219,9 @@ select option {
 .plan-meal-item {
   display: flex; align-items: flex-start; gap: 12px; padding: 12px;
   background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border);
+  transition: var(--transition);
 }
+.plan-meal-item:hover { border-color: var(--accent-teal); background: rgba(0,212,170,0.05); transform: translateX(2px); }
 .plan-meal-icon { font-size: 1.5rem; flex-shrink: 0; }
 .plan-meal-info { flex: 1; min-width: 0; }
 .plan-meal-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px; }
