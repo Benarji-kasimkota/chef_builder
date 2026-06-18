@@ -143,6 +143,9 @@ async function generatePlan() {
   }
 }
 
+// Lookup table so we never embed JSON inside onclick attributes
+const _planMeals = {};
+
 function renderPlan(data) {
   // Summary
   document.getElementById('planSummary').style.display = 'block';
@@ -159,7 +162,7 @@ function renderPlan(data) {
   const container = document.getElementById('planDaysContainer');
   const mealEmojis = {breakfast:'🌅', lunch:'☀️', dinner:'🌙', snack:'🍎'};
   const days = data.days || [];
-  container.innerHTML = days.map((day, i) => `
+  container.innerHTML = days.map((day, di) => `
     <div class="card plan-day-card" style="margin-bottom:1rem">
       <div class="plan-day-header">
         <h3 class="card-title">${day.day}</h3>
@@ -169,8 +172,11 @@ function renderPlan(data) {
         </span>` : ''}
       </div>
       <div class="plan-meals">
-        ${Object.entries(day.meals || {}).map(([mealType, meal]) => `
-          <div class="plan-meal-item" onclick="openRecipeModal(${JSON.stringify(JSON.stringify(meal))})" style="cursor:pointer" title="Tap for recipe">
+        ${Object.entries(day.meals || {}).map(([mealType, meal]) => {
+          const key = `d${di}-${mealType}`;
+          _planMeals[key] = meal;
+          return `
+          <div class="plan-meal-item" onclick="_openMeal('${key}')" style="cursor:pointer" title="Tap for recipe">
             <div class="plan-meal-icon">${mealEmojis[mealType] || '🍽️'}</div>
             <div class="plan-meal-info">
               <div class="plan-meal-type">${mealType.charAt(0).toUpperCase()+mealType.slice(1)}</div>
@@ -183,12 +189,17 @@ function renderPlan(data) {
               <span>${meal.prep_time || ''}</span>
               <span style="color:var(--accent-teal);font-size:11px">📖 Recipe</span>
             </div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>
     </div>
   `).join('');
   lucide.createIcons();
+}
+
+function _openMeal(key) {
+  const meal = _planMeals[key];
+  if (meal) openRecipeModal(meal);
 }
 
 async function openRecipeModal(mealJson) {
