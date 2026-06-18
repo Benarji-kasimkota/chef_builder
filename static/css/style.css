@@ -342,14 +342,14 @@ body {
 .preview-conversion { color: var(--accent-teal); font-size: 11px; margin-top: 4px; }
 
 /* ── Food Log Page ── */
-.add-food-card { border: 1px solid var(--border-accent); }
+.add-food-card { border: 1px solid var(--border-accent); position: relative; z-index: 10; }
 .food-search-form { display: flex; flex-direction: column; gap: 12px; }
 .search-field { position: relative; }
 .search-dropdown {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200;
   background: #0d1f38; border: 1px solid var(--border);
   border-radius: var(--radius-sm); max-height: 320px; overflow-y: auto;
-  box-shadow: var(--shadow); display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: none;
 }
 .search-dropdown.open { display: block; }
 .dd-item { padding: 12px 14px; cursor: pointer; border-bottom: 1px solid var(--border); transition: var(--transition); }
