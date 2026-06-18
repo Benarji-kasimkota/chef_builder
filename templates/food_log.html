@@ -440,7 +440,13 @@ async function searchFood(q) {
         </div>
       </div>`).join('');
     dropdown.classList.add('open');
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    dropdown.innerHTML = `<div class="dd-empty" style="color:var(--accent-amber)">
+      ⚠️ Search unavailable — check your connection.<br>
+      <small style="color:var(--text-muted)">Try common foods: chicken, rice, egg…</small>
+    </div>`;
+    dropdown.classList.add('open');
+  }
 }
 
 async function selectFood(key, name, servingSize, servingUnit) {

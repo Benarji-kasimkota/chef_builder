@@ -46,20 +46,62 @@
 <div class="recipe-section active" id="sec-ai-gen">
   <div class="card recipe-gen-card">
     <div class="gen-header">
-      <div class="gen-icon">🤖</div>
+      <div class="gen-icon">✨</div>
       <div>
         <h3>AI Recipe Generator</h3>
         <p>Personalized recipes based on your nutritional gaps and preferences</p>
       </div>
     </div>
+
+    <!-- Quick-pick chips -->
+    <div class="gen-quick-chips">
+      <span class="gen-chip-label">Quick pick:</span>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'High protein vegetarian')">💪 High Protein</button>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'Quick under 30 minutes')">⚡ Quick 30 min</button>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'Budget friendly')">💰 Budget</button>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'Low carb keto')">🥑 Low Carb</button>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'Meal prep batch cooking')">📦 Meal Prep</button>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'Indian cuisine')">🇮🇳 Indian</button>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'Mediterranean diet')">🫒 Mediterranean</button>
+      <button class="gen-chip" onclick="setRecipePrefs(this,'Comfort food')">🍲 Comfort Food</button>
+    </div>
+
     <div class="gen-controls">
-      <input type="text" id="recipePrefs" class="input" placeholder="Optional: cuisine, ingredients, dietary needs..."/>
+      <input type="text" id="recipePrefs" class="input" placeholder="Describe what you want — cuisine, ingredients, diet, mood…"/>
       <button class="btn btn-primary btn-lg" onclick="generateRecipes()" id="genBtn">
-        <i data-lucide="sparkles"></i> Generate Recipes
+        <i data-lucide="sparkles"></i> Generate
       </button>
     </div>
   </div>
-  <div id="recipesContainer"></div>
+
+  <!-- Empty state inspiration grid -->
+  <div id="recipesContainer">
+    <div class="recipe-inspiration" id="recipeInspiration">
+      <p class="inspiration-label">✨ Tap a quick pick above or describe your recipe idea to get started</p>
+      <div class="inspiration-grid">
+        <div class="inspo-card" onclick="setRecipePrefs(null,'High protein post-workout meal');generateRecipes()">
+          <span class="inspo-icon">🏋️</span>
+          <strong>Post-Workout</strong>
+          <span>High protein recovery meal</span>
+        </div>
+        <div class="inspo-card" onclick="setRecipePrefs(null,'Healthy breakfast under 15 minutes');generateRecipes()">
+          <span class="inspo-icon">🌅</span>
+          <strong>Quick Breakfast</strong>
+          <span>Ready in 15 minutes</span>
+        </div>
+        <div class="inspo-card" onclick="setRecipePrefs(null,'Vegetarian dinner rich in iron and vitamins');generateRecipes()">
+          <span class="inspo-icon">🥗</span>
+          <strong>Nutrient-Dense</strong>
+          <span>Fill your nutrient gaps</span>
+        </div>
+        <div class="inspo-card" onclick="setRecipePrefs(null,'Comfort food healthy version');generateRecipes()">
+          <span class="inspo-icon">🍲</span>
+          <strong>Healthy Comfort</strong>
+          <span>Guilt-free classics</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -504,6 +546,12 @@ function loadingHTML(msg) {
 }
 
 // ══════════════ 1. AI GENERATOR ══════════════
+function setRecipePrefs(btn, text) {
+  document.getElementById('recipePrefs').value = text;
+  document.querySelectorAll('.gen-chip').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
 async function generateRecipes() {
   const btn = document.getElementById('genBtn');
   const prefs = document.getElementById('recipePrefs').value;
@@ -527,9 +575,9 @@ async function generateRecipes() {
       container.innerHTML = `<div class="card"><p class="text-muted">${data.raw || 'No recipes returned. Try again.'}</p></div>`;
     }
   } catch(e) {
-    container.innerHTML = '<div class="card"><p style="color:var(--accent-red)">Failed. Check your API key.</p></div>';
+    container.innerHTML = '<div class="card"><p style="color:var(--accent-red)">Failed to generate recipes. Please check your connection.</p></div>';
   }
-  btn.disabled = false; btn.innerHTML = '<i data-lucide="sparkles"></i> Generate Recipes';
+  btn.disabled = false; btn.innerHTML = '<i data-lucide="sparkles"></i> Generate';
   lucide.createIcons();
 }
 

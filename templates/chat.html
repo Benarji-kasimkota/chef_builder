@@ -18,10 +18,14 @@
     </button>
   </div>
 
-  <!-- Language selector -->
+  <!-- Language selector (collapsed by default, expand on click) -->
   <div class="lang-bar">
-    <span class="lang-label"><i data-lucide="languages"></i> Type in any language:</span>
-    <div class="lang-chips" id="langChips">
+    <button class="lang-toggle-btn" onclick="toggleLangBar(this)" title="Select language">
+      <i data-lucide="languages"></i>
+      <span id="langToggleLabel">Auto-detect language</span>
+      <i data-lucide="chevron-down" class="lang-chevron"></i>
+    </button>
+    <div class="lang-chips collapsed" id="langChips">
       <button class="lang-chip active" onclick="setLang('',this)" title="Auto-detect">🌐 Auto</button>
       <button class="lang-chip" onclick="setLang('Hindi',this)" title="हिंदी">🇮🇳 हिंदी</button>
       <button class="lang-chip" onclick="setLang('Tamil',this)" title="தமிழ்">தமிழ்</button>
@@ -56,7 +60,7 @@
 
   <!-- Quick prompts -->
   <div class="quick-prompts" id="quickPrompts">
-    <p class="quick-label">Suggested questions:</p>
+    <p class="quick-label">✨ Suggested for you:</p>
     <div class="prompts-scroll">
       <button class="prompt-chip" onclick="sendQuick(this)">What nutrients am I missing today?</button>
       <button class="prompt-chip" onclick="sendQuick(this)">Suggest a high-protein dinner recipe</button>
@@ -97,8 +101,15 @@
     {% else %}
     <div class="chat-welcome">
       <div class="welcome-icon">🌟</div>
-      <h3>Welcome to NutriAI Coach!</h3>
-      <p>I'm your personal AI wellness expert. Ask me anything about nutrition, fitness, recipes, yoga, meditation, brain health, and more. I also have access to your daily nutrition data to give you personalized guidance.</p>
+      <h3>Hi{% if profile and profile.name %}, {{ profile.name.split()[0] }}{% endif %}! I'm your NutriAI Coach</h3>
+      <p>Ask me anything about nutrition, fitness, recipes, yoga, meditation, or brain health. I have access to your daily nutrition data to give you <strong>personalized guidance</strong>.</p>
+      <div class="welcome-features">
+        <span class="wf-pill">🥗 Nutrition advice</span>
+        <span class="wf-pill">💪 Fitness plans</span>
+        <span class="wf-pill">🍳 Recipe ideas</span>
+        <span class="wf-pill">🧘 Mindfulness</span>
+        <span class="wf-pill">🌍 Any language</span>
+      </div>
     </div>
     {% endif %}
     <div class="typing-indicator" id="typingIndicator" style="display:none">
@@ -216,12 +227,26 @@ const LANG_PLACEHOLDERS = {
   'Swahili':  'Uliza kuhusu lishe, mapishi, mazoezi...',
 };
 
+function toggleLangBar(btn) {
+  const chips = document.getElementById('langChips');
+  const chevron = btn.querySelector('.lang-chevron');
+  chips.classList.toggle('collapsed');
+  chevron.style.transform = chips.classList.contains('collapsed') ? '' : 'rotate(180deg)';
+}
+
 function setLang(lang, btn) {
   currentLang = lang;
   document.querySelectorAll('.lang-chip').forEach(c => c.classList.remove('active'));
   btn.classList.add('active');
+  const label = document.getElementById('langToggleLabel');
+  if (label) label.textContent = lang ? `Language: ${lang}` : 'Auto-detect language';
   const input = document.getElementById('chatInput');
   input.placeholder = LANG_PLACEHOLDERS[lang] || LANG_PLACEHOLDERS[''];
+  // Collapse lang bar after selecting
+  const chips = document.getElementById('langChips');
+  const chevron = document.querySelector('.lang-chevron');
+  chips.classList.add('collapsed');
+  if (chevron) chevron.style.transform = '';
   input.focus();
 }
 
@@ -285,13 +310,19 @@ function appendMessage(role, content) {
 async function clearChat() {
   try {
     await fetch('/api/chat/clear', {method: 'DELETE'});
-    document.querySelectorAll('.chat-msg').forEach(el => el.remove());
+    document.querySelectorAll('.chat-msg, .followup-row').forEach(el => el.remove());
     document.querySelector('.chat-welcome')?.remove();
     document.getElementById('typingIndicator').insertAdjacentHTML('beforebegin', `
       <div class="chat-welcome">
         <div class="welcome-icon">🌟</div>
-        <h3>Welcome to NutriAI Coach!</h3>
-        <p>Ask me anything about nutrition, fitness, recipes, yoga, meditation, brain health, and more.</p>
+        <h3>Fresh start! I'm your NutriAI Coach</h3>
+        <p>Ask me anything about nutrition, fitness, recipes, yoga, or mindfulness.</p>
+        <div class="welcome-features">
+          <span class="wf-pill">🥗 Nutrition</span>
+          <span class="wf-pill">💪 Fitness</span>
+          <span class="wf-pill">🍳 Recipes</span>
+          <span class="wf-pill">🧘 Mindfulness</span>
+        </div>
       </div>`);
     document.getElementById('quickPrompts').style.display = 'block';
   } catch(e) {
@@ -360,12 +391,40 @@ async function sendMessage() {
     const d = await r.json();
     document.getElementById('typingIndicator').style.display = 'none';
     appendMessage('assistant', d.reply || d.error || 'Sorry, something went wrong.');
+    showFollowUps(msg, currentCategory);
   } catch(e) {
     document.getElementById('typingIndicator').style.display = 'none';
     appendMessage('assistant', 'Connection error. Please check your API key in the .env file.');
   }
   document.getElementById('sendBtn').disabled = false;
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function showFollowUps(userMsg, cat) {
+  const FOLLOWUPS = {
+    nutrition: ['Tell me more about that', 'What foods should I avoid?', 'Give me a meal plan with this in mind', 'How much do I need daily?'],
+    fitness: ['Give me a workout plan', 'How many sets and reps?', 'What should I eat before/after?', 'How long until I see results?'],
+    recipes: ['Make it higher protein', 'Give me a simpler version', 'What are the macros?', 'Suggest variations'],
+    mindfulness: ['Guide me through it step by step', 'How often should I do this?', 'What are the benefits?', 'Morning or evening?'],
+    mental_health: ['Tell me more', 'How quickly does this help?', 'What else can I do?', 'Is this evidence-based?'],
+    general: ['Tell me more', 'How do I get started?', 'What should I track?', 'Give me a personalized tip'],
+  };
+  const suggestions = FOLLOWUPS[cat] || FOLLOWUPS.general;
+  // Remove any old follow-up row
+  document.querySelector('.followup-row')?.remove();
+  const row = document.createElement('div');
+  row.className = 'followup-row';
+  row.innerHTML = '<span class="followup-label">Quick replies:</span>' +
+    suggestions.map(s => `<button class="followup-chip" onclick="sendFollowUp(this)">${s}</button>`).join('');
+  document.getElementById('typingIndicator').insertAdjacentElement('beforebegin', row);
+  lucide.createIcons();
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function sendFollowUp(btn) {
+  document.getElementById('chatInput').value = btn.textContent;
+  document.querySelector('.followup-row')?.remove();
+  sendMessage();
 }
 
 function showToast(msg, type) {
