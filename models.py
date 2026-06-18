@@ -93,3 +93,11 @@ class SavedRecipe(db.Model):
     content = db.Column(db.Text, nullable=False)
     source = db.Column(db.String(50), default="ai_coach")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class PantryItem(db.Model):
+    __tablename__ = "pantry_item"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    quantity = db.Column(db.String(50), default="")
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)

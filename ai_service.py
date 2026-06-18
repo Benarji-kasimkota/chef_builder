@@ -195,10 +195,13 @@ def build_context_from_nutrition(today_nutrition: dict, deficiencies: dict, prof
 
 
 def chat(messages: list, today_nutrition: dict = None,
-         deficiencies: dict = None, profile: dict = None) -> str:
+         deficiencies: dict = None, profile: dict = None,
+         pantry_items: list = None) -> str:
     system = SYSTEM_PROMPT
     if today_nutrition and profile:
         system += build_context_from_nutrition(today_nutrition, deficiencies or {}, profile)
+    if pantry_items:
+        system += f"\n\nUser's pantry (ingredients they currently have): {', '.join(pantry_items)}. When suggesting recipes, prioritise these ingredients."
     return _chat(messages, system=system)
 
 

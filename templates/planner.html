@@ -25,6 +25,13 @@
       <input type="text" id="planPrefs" class="input" placeholder="e.g. high protein, budget-friendly, quick meals under 30 min">
     </div>
   </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-secondary)">
+      <input type="checkbox" id="usePantry" style="accent-color:var(--accent-teal);width:16px;height:16px">
+      <i data-lucide="package-open" style="width:15px;height:15px"></i>
+      Plan around my pantry <span id="pantryCount" style="color:var(--accent-teal);font-weight:600"></span>
+    </label>
+  </div>
   <button class="btn btn-primary" onclick="generatePlan()" id="generateBtn">
     <i data-lucide="sparkles"></i> Generate Meal Plan
   </button>
@@ -86,9 +93,24 @@
 
 {% block scripts %}
 <script>
+let plannerPantry = [];
+
+async function loadPlannerPantry() {
+  const r = await fetch('/api/pantry');
+  plannerPantry = await r.json();
+  const count = plannerPantry.length;
+  const countEl = document.getElementById('pantryCount');
+  if (count) countEl.textContent = `(${count} items)`;
+}
+
 async function generatePlan() {
   const days = document.getElementById('planDays').value;
-  const prefs = document.getElementById('planPrefs').value;
+  let prefs = document.getElementById('planPrefs').value;
+  const usePantry = document.getElementById('usePantry').checked;
+  if (usePantry && plannerPantry.length) {
+    const pantryStr = plannerPantry.map(i => i.name).join(', ');
+    prefs = `Use these pantry ingredients: ${pantryStr}. ${prefs}`.trim();
+  }
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
   document.getElementById('planEmpty').style.display = 'none';
@@ -252,6 +274,7 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape') closeRecipeMo
 
 window.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
+  loadPlannerPantry();
 });
 </script>
 {% endblock %}

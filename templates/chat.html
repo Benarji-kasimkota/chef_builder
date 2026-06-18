@@ -110,6 +110,9 @@
         <span class="wf-pill">🧘 Mindfulness</span>
         <span class="wf-pill">🌍 Any language</span>
       </div>
+      <div id="pantryAwareHint" style="display:none;margin-top:10px;padding:8px 14px;background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.25);border-radius:8px;font-size:12px;color:var(--accent-teal)">
+        🥬 I know your pantry — ask me "what can I cook with what I have?"
+      </div>
     </div>
     {% endif %}
     <div class="typing-indicator" id="typingIndicator" style="display:none">
@@ -451,6 +454,14 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('chatInput').value = urlPrompt;
     sendMessage();
   }
+
+  // Show pantry hint if user has pantry items
+  fetch('/api/pantry').then(r => r.json()).then(items => {
+    if (items.length) {
+      const hint = document.getElementById('pantryAwareHint');
+      if (hint) hint.style.display = 'block';
+    }
+  });
 });
 </script>
 {% endblock %}

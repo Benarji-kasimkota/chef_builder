@@ -21,6 +21,7 @@ from store import (
     add_mindfulness_log, delete_mindfulness_log,
     get_chat_messages, add_chat_message, clear_chat_messages,
     get_saved_recipes, add_saved_recipe, delete_saved_recipe,
+    get_pantry, add_pantry_item, delete_pantry_item, clear_pantry,
 )
 from nutrition_data import (
     FOOD_DATABASE, RDA, VITAMIN_NAMES, VITAMIN_UNITS, MINERAL_NAMES,
@@ -547,13 +548,15 @@ def chat_api():
     if language:
         messages[-1]["content"] = f"[Respond in {language}] {messages[-1]['content']}"
 
+    pantry_items = [i.name + (f" ({i.quantity})" if i.quantity else "") for i in get_pantry()]
     try:
         reply = ai_service.chat(
             messages=messages,
             today_nutrition=totals,
             deficiencies=deficiencies,
             profile={"name": profile.name, "goal": profile.goal,
-                     "dietary_preference": profile.dietary_preference} if profile else {}
+                     "dietary_preference": profile.dietary_preference} if profile else {},
+            pantry_items=pantry_items,
         )
     except Exception as e:
         reply = f"I'm having trouble connecting right now. Please check your API key. Error: {str(e)}"
@@ -991,6 +994,35 @@ def delete_saved_recipe_route(recipe_id):
 def clear_chat():
     clear_chat_messages()
     return jsonify({"success": True})
+
+
+@app.route("/api/pantry", methods=["GET"])
+def pantry_list():
+    items = get_pantry()
+    return jsonify([{"id": i.id, "name": i.name, "quantity": i.quantity} for i in items])
+
+
+@app.route("/api/pantry", methods=["POST"])
+def pantry_add():
+    data = request.json or {}
+    name = data.get("name", "").strip()
+    quantity = data.get("quantity", "").strip()
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+    item_id = add_pantry_item(name, quantity)
+    return jsonify({"id": item_id, "name": name, "quantity": quantity})
+
+
+@app.route("/api/pantry/<item_id>", methods=["DELETE"])
+def pantry_delete(item_id):
+    delete_pantry_item(item_id)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/pantry/clear", methods=["DELETE"])
+def pantry_clear():
+    clear_pantry()
+    return jsonify({"ok": True})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

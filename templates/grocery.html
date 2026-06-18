@@ -11,9 +11,37 @@
   </button>
 </div>
 
+<!-- My Pantry -->
+<div class="card" style="margin-bottom:1.5rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+    <h3 class="card-title" style="margin:0"><i data-lucide="package-open"></i> My Pantry</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="cookFromPantry()">
+        <i data-lucide="chef-hat"></i> Cook from Pantry
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="clearPantry()" id="clearPantryBtn" style="display:none">
+        <i data-lucide="trash-2"></i> Clear All
+      </button>
+    </div>
+  </div>
+  <p class="text-muted" style="margin-bottom:1rem;font-size:13px">Add what you have at home — Chef Builder will suggest recipes, meal plans, and ask your AI Coach based on your pantry.</p>
+
+  <!-- Add item row -->
+  <div style="display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap">
+    <input type="text" id="pantryName" class="input" placeholder="Ingredient (e.g. chicken breast, spinach…)" style="flex:2;min-width:160px" onkeydown="if(event.key==='Enter')addPantryItem()">
+    <input type="text" id="pantryQty" class="input" placeholder="Qty (e.g. 500g)" style="width:110px" onkeydown="if(event.key==='Enter')addPantryItem()">
+    <button class="btn btn-primary" onclick="addPantryItem()"><i data-lucide="plus"></i> Add</button>
+  </div>
+
+  <!-- Pantry items list -->
+  <div id="pantryList" style="display:flex;flex-wrap:wrap;gap:8px;min-height:32px">
+    <span class="text-muted" id="pantryEmpty" style="font-size:13px">No ingredients added yet.</span>
+  </div>
+</div>
+
 <!-- Generate Controls -->
 <div class="card" style="margin-bottom:1.5rem">
-  <h3 class="card-title" style="margin-bottom:1rem"><i data-lucide="shopping-cart"></i> Generate Smart List</h3>
+  <h3 class="card-title" style="margin-bottom:1rem"><i data-lucide="shopping-cart"></i> Generate Smart Shopping List</h3>
   <p class="text-muted" style="margin-bottom:1rem">Based on your last 7 days of nutrition data, NutriAI will suggest what to buy to fill your nutrient gaps.</p>
   <div class="form-group" style="margin-bottom:1rem">
     <label class="form-label">Additional Preferences</label>
@@ -53,6 +81,76 @@
 {% block scripts %}
 <script>
 let checkedItems = new Set();
+let pantryItems = [];
+
+async function loadPantry() {
+  const r = await fetch('/api/pantry');
+  pantryItems = await r.json();
+  renderPantryList();
+}
+
+function renderPantryList() {
+  const list = document.getElementById('pantryList');
+  const empty = document.getElementById('pantryEmpty');
+  const clearBtn = document.getElementById('clearPantryBtn');
+  if (!pantryItems.length) {
+    list.innerHTML = '';
+    list.appendChild(empty);
+    empty.style.display = '';
+    clearBtn.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  clearBtn.style.display = '';
+  list.innerHTML = pantryItems.map(item => `
+    <div class="pantry-chip" data-id="${item.id}">
+      <span class="pantry-chip-name">${item.name}</span>
+      ${item.quantity ? `<span class="pantry-chip-qty">${item.quantity}</span>` : ''}
+      <button class="pantry-chip-del" onclick="removePantryItem('${item.id}')" title="Remove">×</button>
+    </div>
+  `).join('');
+}
+
+async function addPantryItem() {
+  const nameEl = document.getElementById('pantryName');
+  const qtyEl = document.getElementById('pantryQty');
+  const name = nameEl.value.trim();
+  if (!name) { nameEl.focus(); return; }
+  const r = await fetch('/api/pantry', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({name, quantity: qtyEl.value.trim()})
+  });
+  const item = await r.json();
+  if (item.error) { showToast(item.error, 'error'); return; }
+  pantryItems.unshift(item);
+  renderPantryList();
+  nameEl.value = '';
+  qtyEl.value = '';
+  nameEl.focus();
+}
+
+async function removePantryItem(id) {
+  await fetch(`/api/pantry/${id}`, {method: 'DELETE'});
+  pantryItems = pantryItems.filter(i => String(i.id) !== String(id));
+  renderPantryList();
+}
+
+async function clearPantry() {
+  if (!confirm('Clear all pantry items?')) return;
+  await fetch('/api/pantry/clear', {method: 'DELETE'});
+  pantryItems = [];
+  renderPantryList();
+}
+
+function cookFromPantry() {
+  if (!pantryItems.length) {
+    showToast('Add some ingredients to your pantry first!', 'error');
+    return;
+  }
+  const names = pantryItems.map(i => i.name + (i.quantity ? ` (${i.quantity})` : ''));
+  window.location.href = `/recipes?pantry=${encodeURIComponent(names.join(','))}`;
+}
 
 async function generateGrocery() {
   const prefs = document.getElementById('groceryPrefs').value;
@@ -139,6 +237,6 @@ function printList() {
   window.print();
 }
 
-window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+window.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); loadPantry(); });
 </script>
 {% endblock %}

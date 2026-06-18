@@ -20,6 +20,9 @@
   <button class="rsec-tab active" onclick="showSection('ai-gen', this)">
     <i data-lucide="sparkles"></i> AI Generator
   </button>
+  <button class="rsec-tab" onclick="showSection('pantry', this)" id="pantryTabBtn">
+    <i data-lucide="package-open"></i> My Pantry
+  </button>
   <button class="rsec-tab" onclick="showSection('fridge', this)">
     <i data-lucide="refrigerator"></i> From My Fridge
   </button>
@@ -101,6 +104,53 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     1b. MY PANTRY RECIPES
+══════════════════════════════════════════ -->
+<div class="recipe-section" id="sec-pantry" style="display:none">
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div>
+        <h3 class="card-title" style="margin-bottom:4px"><i data-lucide="package-open"></i> Cook from My Pantry</h3>
+        <p class="text-muted" style="font-size:13px">Recipes generated based on what you have at home.</p>
+      </div>
+      <a href="/grocery" class="btn btn-ghost btn-sm"><i data-lucide="pencil"></i> Edit Pantry</a>
+    </div>
+
+    <!-- Live pantry chips -->
+    <div id="pantryChipsRecipe" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;min-height:30px">
+      <span class="text-muted" style="font-size:13px" id="pantryChipsEmpty">Loading pantry…</span>
+    </div>
+
+    <!-- Cuisine filter -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+      <span style="font-size:12px;color:var(--text-muted);font-weight:600">Cuisine:</span>
+      <button class="gen-chip active" onclick="setPantryCuisine(this,'')">Any</button>
+      <button class="gen-chip" onclick="setPantryCuisine(this,'Indian')">🇮🇳 Indian</button>
+      <button class="gen-chip" onclick="setPantryCuisine(this,'Mediterranean')">🫒 Mediterranean</button>
+      <button class="gen-chip" onclick="setPantryCuisine(this,'Asian')">🍜 Asian</button>
+      <button class="gen-chip" onclick="setPantryCuisine(this,'Italian')">🍝 Italian</button>
+    </div>
+
+    <button class="btn btn-primary" onclick="generateFromPantry()" id="pantryGenBtn">
+      <i data-lucide="sparkles"></i> Generate Recipes from My Pantry
+    </button>
+  </div>
+
+  <div id="pantryRecipesLoading" style="display:none" class="card" style="text-align:center;padding:3rem">
+    <div style="text-align:center;padding:2rem;color:var(--text-muted)">
+      <div style="font-size:3rem;margin-bottom:1rem">🥘</div>
+      <p>Finding recipes for your pantry…</p>
+    </div>
+  </div>
+  <div id="pantryRecipesContainer"></div>
+  <div id="pantryRecipesEmpty" class="card" style="text-align:center;padding:2.5rem;display:none">
+    <div style="font-size:3rem;margin-bottom:1rem">🛒</div>
+    <h3>Your pantry is empty</h3>
+    <p class="text-muted" style="margin-top:6px">Add ingredients in the <a href="/grocery" style="color:var(--accent-teal)">Grocery page</a> first.</p>
   </div>
 </div>
 
@@ -1106,6 +1156,74 @@ async function deleteSavedRecipe(id, btn) {
   } catch(e) { alert('Failed to delete recipe'); }
 }
 
-window.addEventListener('DOMContentLoaded', () => lucide.createIcons());
+// ══════════════ MY PANTRY ══════════════
+let pantryData = [];
+let pantryCuisineHint = '';
+
+async function loadPantryForRecipes() {
+  const r = await fetch('/api/pantry');
+  pantryData = await r.json();
+  const container = document.getElementById('pantryChipsRecipe');
+  const empty = document.getElementById('pantryChipsEmpty');
+  if (!pantryData.length) {
+    container.innerHTML = '';
+    empty.style.display = '';
+    container.appendChild(empty);
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = pantryData.map(i =>
+    `<span class="pantry-chip"><span class="pantry-chip-name">${i.name}</span>${i.quantity ? `<span class="pantry-chip-qty">${i.quantity}</span>` : ''}</span>`
+  ).join('');
+}
+
+function setPantryCuisine(btn, cuisine) {
+  document.querySelectorAll('#sec-pantry .gen-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  pantryCuisineHint = cuisine;
+}
+
+async function generateFromPantry() {
+  if (!pantryData.length) {
+    showToast('Add ingredients to your pantry first!', 'error');
+    window.location.href = '/grocery';
+    return;
+  }
+  const btn = document.getElementById('pantryGenBtn');
+  btn.disabled = true;
+  document.getElementById('pantryRecipesLoading').style.display = 'block';
+  document.getElementById('pantryRecipesContainer').innerHTML = '';
+  document.getElementById('pantryRecipesEmpty').style.display = 'none';
+
+  const ingredients = pantryData.map(i => i.name + (i.quantity ? ` (${i.quantity})` : ''));
+  try {
+    const r = await fetch('/api/recipes/from-ingredients', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ingredients, cuisine_hint: pantryCuisineHint})
+    });
+    const data = await r.json();
+    document.getElementById('pantryRecipesLoading').style.display = 'none';
+    if (data.error) { showToast(data.error, 'error'); return; }
+    renderFromIngredients(data, 'pantryRecipesContainer');
+  } catch(e) {
+    document.getElementById('pantryRecipesLoading').style.display = 'none';
+    showToast('Failed to generate recipes. Try again.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  loadPantryForRecipes();
+
+  // Auto-switch to pantry tab if coming from grocery page
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('pantry')) {
+    const tab = document.getElementById('pantryTabBtn');
+    if (tab) tab.click();
+  }
+});
 </script>
 {% endblock %}

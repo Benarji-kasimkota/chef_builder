@@ -316,6 +316,30 @@ if _USE_FIREBASE:
     def delete_saved_recipe(recipe_id):
         _db().collection("saved_recipes").document(recipe_id).delete()
 
+    # ── Pantry ─────────────────────────────────────────────────────────────────
+
+    def _pantry_row(doc):
+        d = doc.to_dict()
+        return _Row(id=doc.id, name=d.get("name", ""), quantity=d.get("quantity", ""))
+
+    def get_pantry():
+        docs = list(_db().collection("pantry_items").stream())
+        return [_pantry_row(d) for d in docs]
+
+    def add_pantry_item(name, quantity=""):
+        ref = _db().collection("pantry_items").document()
+        ref.set({"name": name, "quantity": quantity,
+                 "added_at": datetime.utcnow().isoformat()})
+        return ref.id
+
+    def delete_pantry_item(item_id):
+        _db().collection("pantry_items").document(item_id).delete()
+
+    def clear_pantry():
+        docs = list(_db().collection("pantry_items").stream())
+        for doc in docs:
+            doc.reference.delete()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  SQLAlchemy / SQLite backend  (local dev + existing test suite)
@@ -324,7 +348,7 @@ else:
     from database import db as _db_sa
     from models import (
         UserProfile, FoodLog, MindfulnessLog, WeightLog,
-        WaterLog, ChatMessage, SavedRecipe,
+        WaterLog, ChatMessage, SavedRecipe, PantryItem,
     )
 
     def init_store(app):
@@ -497,4 +521,23 @@ else:
     def delete_saved_recipe(recipe_id):
         recipe = SavedRecipe.query.get_or_404(int(recipe_id))
         _db_sa.session.delete(recipe)
+        _db_sa.session.commit()
+
+    # Pantry
+    def get_pantry():
+        return PantryItem.query.order_by(PantryItem.added_at.desc()).all()
+
+    def add_pantry_item(name, quantity=""):
+        item = PantryItem(name=name, quantity=quantity)
+        _db_sa.session.add(item)
+        _db_sa.session.commit()
+        return str(item.id)
+
+    def delete_pantry_item(item_id):
+        item = PantryItem.query.get_or_404(int(item_id))
+        _db_sa.session.delete(item)
+        _db_sa.session.commit()
+
+    def clear_pantry():
+        PantryItem.query.delete()
         _db_sa.session.commit()
