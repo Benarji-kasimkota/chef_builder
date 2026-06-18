@@ -49,6 +49,7 @@ body {
   font-size: 14px;
   line-height: 1.6;
   overflow-x: hidden;
+  color-scheme: dark;
 }
 
 /* ── Ambient background ── */
@@ -184,6 +185,21 @@ body {
 .input::placeholder { color: var(--text-muted); }
 .textarea { resize: vertical; min-height: 80px; }
 .select-input { appearance: none; cursor: pointer; }
+
+/* Force dark background on all native select dropdowns */
+select.input,
+select.select-input,
+select.unit-select,
+.input[type="select"],
+select {
+  background-color: #0d1f38;
+  color: var(--text-primary);
+  color-scheme: dark;
+}
+select option {
+  background-color: #0d1f38;
+  color: var(--text-primary);
+}
 
 /* ── Activity Rings ── */
 .rings-stats-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; margin-bottom: 20px; }
