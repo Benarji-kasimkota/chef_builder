@@ -123,8 +123,8 @@ def food_log():
 @app.route("/chat")
 def chat_page():
     profile = get_profile()
-    messages = get_chat_messages(limit=50)
-    return render_template("chat.html", profile=profile, messages=messages)
+    clear_chat_messages()
+    return render_template("chat.html", profile=profile, messages=[])
 
 
 @app.route("/recipes")

@@ -16,6 +16,16 @@ from datetime import date, datetime, timedelta
 
 _USE_FIREBASE = bool(os.environ.get("FIREBASE_CREDENTIALS"))
 
+# Vercel's filesystem is ephemeral — SQLite data is wiped on every redeploy.
+# Fail loudly rather than silently losing all user data.
+if not _USE_FIREBASE and os.environ.get("VERCEL"):
+    raise RuntimeError(
+        "FIREBASE_CREDENTIALS is not set but the app is running on Vercel, where the "
+        "filesystem is ephemeral. All SQLite data would be lost on every redeploy. "
+        "Add FIREBASE_CREDENTIALS (your Firebase service-account JSON, minified) to "
+        "the Vercel dashboard environment variables and redeploy."
+    )
+
 
 class _Row:
     """Attribute-access wrapper — gives Firestore dicts the same .field syntax

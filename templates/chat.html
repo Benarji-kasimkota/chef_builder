@@ -283,21 +283,17 @@ function appendMessage(role, content) {
 }
 
 async function clearChat() {
-  if (!confirm('Clear the entire conversation and start fresh?')) return;
   try {
     await fetch('/api/chat/clear', {method: 'DELETE'});
-    // Remove all messages from UI except typing indicator
     document.querySelectorAll('.chat-msg').forEach(el => el.remove());
     document.querySelector('.chat-welcome')?.remove();
-    // Re-show welcome
     document.getElementById('typingIndicator').insertAdjacentHTML('beforebegin', `
       <div class="chat-welcome">
         <div class="welcome-icon">🌟</div>
-        <h3>Conversation cleared!</h3>
-        <p>Start fresh — ask me anything about nutrition, recipes, fitness, or wellness.</p>
+        <h3>Welcome to NutriAI Coach!</h3>
+        <p>Ask me anything about nutrition, fitness, recipes, yoga, meditation, brain health, and more.</p>
       </div>`);
     document.getElementById('quickPrompts').style.display = 'block';
-    showToast('Chat cleared!');
   } catch(e) {
     showToast('Failed to clear chat', 'error');
   }

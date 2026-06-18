@@ -64,15 +64,15 @@
         <div class="goal-picker">
           <label class="goal-option">
             <input type="radio" name="goal" value="lose" {% if profile.goal=='lose' %}checked{% endif %}/>
-            <span class="goal-btn">⬇️<br>Lose Weight</span>
+            <span class="goal-btn"><span class="goal-icon">⬇️</span><span class="goal-label">Lose Weight</span></span>
           </label>
           <label class="goal-option">
             <input type="radio" name="goal" value="maintain" {% if profile.goal=='maintain' %}checked{% endif %}/>
-            <span class="goal-btn">⚖️<br>Maintain</span>
+            <span class="goal-btn"><span class="goal-icon">⚖️</span><span class="goal-label">Maintain</span></span>
           </label>
           <label class="goal-option">
             <input type="radio" name="goal" value="gain" {% if profile.goal=='gain' %}checked{% endif %}/>
-            <span class="goal-btn">⬆️<br>Gain Muscle</span>
+            <span class="goal-btn"><span class="goal-icon">⬆️</span><span class="goal-label">Gain Muscle</span></span>
           </label>
         </div>
       </div>
